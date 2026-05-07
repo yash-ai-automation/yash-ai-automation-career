@@ -210,6 +210,29 @@ Default modes are in `modes/` (English). Additional language-specific modes are 
 | Batch processes offers | `batch` |
 | Asks about rejection patterns or wants to improve targeting | `patterns` |
 | Asks about follow-ups or application cadence | `followup` |
+| Wants the strict V2.0 resume pipeline (JD extract + tailored PDF only) | `yash-resume-pipeline` |
+
+### Yash Resume Pipeline (yash-resume-pipeline)
+
+A streamlined sibling of `auto-pipeline`. Instead of running the full evaluation
+(A–G blocks + scoring + tracker), it produces only two artifacts per URL: a
+structured JD `.md` in `jds/` and a tailored LaTeX-compiled PDF resume in
+`resumes/`. Drop URLs into `data/pipeline.md` (same inbox as `pipeline`),
+then run `/yash-resume-pipeline` — it processes one URL at a time, asks
+before each, and stops on `quit`, empty queue, or 3 consecutive failures.
+
+Inputs:
+- URLs in `data/pipeline.md` `## Pendientes` section as `- [ ] <url>`.
+- The locked V2.0 prompt at `resume-optimization-system-based-on-job-description.md`.
+
+Outputs:
+- `jds/JD_<CompanySlug>_<RoleSlug>_Yash_Anghan_<YYYY-MM-DD>.md`
+- `resumes/<CompanySlug>_<RoleSlug>_Yash_Anghan_Resume_<YYYY-MM-DD>.{tex,pdf,log}`
+- One JSONL line per run in `data/yash-resume-runs.log`.
+
+See `modes/yash-resume-pipeline.md` for the full per-URL loop and
+`docs/superpowers/specs/2026-05-07-yash-resume-pipeline-design.md` for the
+locked design.
 
 ### CV Source of Truth
 
