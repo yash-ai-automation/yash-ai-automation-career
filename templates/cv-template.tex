@@ -1,3 +1,10 @@
+%-------------------------
+% Career-Ops LaTeX CV Template
+% Based on: Gabriel Sison / sb2nov resume template
+% License: MIT
+%------------------------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Random Stuff %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \documentclass[letterpaper,11pt]{article}
 \usepackage{latexsym}
 \usepackage[empty]{fullpage}
@@ -10,134 +17,107 @@
 \usepackage{fancyhdr}
 \usepackage[english]{babel}
 \usepackage{tabularx}
-\usepackage{fontawesome5}
+\usepackage{fontawesome}
 \usepackage{multicol}
 \setlength{\multicolsep}{-3.0pt}
 \setlength{\columnsep}{-1pt}
-% XeTeX handles Unicode natively — no need for glyphtounicode
+\input{glyphtounicode}
 \pagestyle{fancy}
-\fancyhf{}
+\fancyhf{} % clear all header and footer fields
 \fancyfoot{}
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
-\addtolength{\oddsidemargin}{-0.7in}
-\addtolength{\evensidemargin}{-0.7in}
-\addtolength{\textwidth}{1.4in}
-\addtolength{\topmargin}{-0.8in}
-\addtolength{\textheight}{1.6in}
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-.7in}
+\addtolength{\textheight}{1.4in}
 \urlstyle{same}
 \raggedbottom
 \raggedright
 \setlength{\tabcolsep}{0in}
-\titleformat{\section}{\vspace{-8pt}\scshape\raggedright\large\bfseries}{}{0em}{}[\color{black}\titlerule \vspace{-4pt}]
-% XeTeX produces Unicode PDFs by default — pdfgentounicode not needed
-\newcommand{\resumeItem}[1]{\item\small{{#1 \vspace{-2pt}}}}
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-7pt}\scshape\raggedright\large\bfseries
+}{}{0em}{}[\color{black}\titlerule \vspace{0pt}]
+% Ensure that generate pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Commands  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-3pt}}
+  }
+}
 \newcommand{\resumeSubheading}[4]{
-\vspace{-1pt}\item
-\begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
-\textbf{#1} & \textbf{\small #2} \\
-\textit{\small#3} & \textit{\small #4} \\
-\end{tabular*}\vspace{-5pt}}
-\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}, itemsep=-3pt]}
+  \vspace{-3pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubheadingContinue}[2]{
+  \vspace{-3pt}
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textit{\small#1} & \textit{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeProjectHeading}[2]{
+  \vspace{-3pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{0pt}}
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
-\newcommand{\resumeItemListStart}{\begin{itemize}[itemsep=1pt, topsep=-1pt]}
-\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{3pt}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{0pt}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Heading  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
-%----------HEADING----------
-\begin{center}
-{\Huge \scshape {{NAME}} } \\ \vspace{2pt}
-\small \raisebox{-0.1\height}\faEnvelope\ \href{mailto:{{EMAIL}}}{{{EMAIL}}} ~
-\raisebox{-0.1\height}\faPhone\ {{PHONE}} ~
-\href{{{LINKEDIN_URL}}}{\raisebox{-0.2\height}\faLinkedin\ \underline{Linkedin}} ~
-\href{{{GITHUB_URL}}}{\raisebox{-0.2\height}\faGithub\ \underline{GitHub}} ~
-\href{{{PORTFOLIO_URL}}}{\raisebox{-0.2\height}\faGlobe\ \underline{Portfolio}}
-\vspace{-8pt}
-\end{center}
-%-----------WORK EXPERIENCE-----------
+    \begin{center}
+        % NAME
+        {\Huge\scshape {{NAME}}}
+        % SUBHEADING
+        \\ {{CONTACT_LINE}}\\
+        \small
+        % EMAIL
+        \href{mailto:{{EMAIL_URL}}}{\raisebox{-0.2\height}\faEnvelope\  \underline{{{EMAIL_DISPLAY}}}} ~
+        % LINKEDIN
+        \href{{{LINKEDIN_URL}}}{\raisebox{-0.2\height}\faLinkedin\ \underline{{{LINKEDIN_DISPLAY}}}}  ~
+        % GITHUB
+        \href{{{GITHUB_URL}}}{\raisebox{-0.2\height}\faGithub\ \underline{{{GITHUB_DISPLAY}}}}
+    \end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Education  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Education}
+  \resumeSubHeadingListStart
+{{EDUCATION}}
+  \resumeSubHeadingListEnd
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Experience  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Work Experience}
+  \resumeSubHeadingListStart
+{{EXPERIENCE}}
+  \resumeSubHeadingListEnd
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  PROJECTS  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Personal Projects}
 \resumeSubHeadingListStart
-\resumeSubheading
-{Morningstar}{Jan 2023 -- Aug 2025}
-{Software Engineer}{Toronto, ON}
-\resumeItemListStart
-% ENHANCE baseline sentences M1-M6 with JD keywords
-% CONTEXT: AI Automation, Machine Learning, GenAI in Financial Services
-% DOMAIN-LOCKED: Investment research, fund data, financial documents, regulatory compliance
-% Baseline M1: Engineered AI-powered document processing pipelines to automate extraction from investment research reports, reducing manual review time by 65% for analyst teams.
-% Baseline M2: Developed machine learning models for financial data classification, improving categorization accuracy to 94% across 12K monthly fund documents.
-% Baseline M3: Built retrieval-augmented generation systems enabling natural language queries against proprietary financial databases, accelerating research workflows by 50%.
-% Baseline M4: Implemented automated validation workflows for SEC filing data, detecting 340+ discrepancies monthly and ensuring regulatory compliance standards.
-% Baseline M5: Created LLM-based summarization tools for earnings reports, delivering analyst-ready briefs in under 30 seconds per document.
-% Baseline M6: Deployed scalable inference infrastructure on cloud platforms, supporting 25K+ daily prediction requests with sub-200ms latency.
-\resumeItemListEnd
-\resumeSubheading
-{Bell}{Jan 2022 -- Dec 2022}
-{Full Stack Java Developer}{Toronto, ON}
-\resumeItemListStart
-% ENHANCE baseline sentences B1-B5 with JD keywords
-% CONTEXT: Full-Stack Java, Microservices, Enterprise Applications
-% DOMAIN-LOCKED: Telecommunications, customer portals, billing, service provisioning
-% Baseline B1: Developed microservices architecture for real-time billing calculations, handling 45K daily transactions with 99.9% uptime for subscriber management.
-% Baseline B2: Implemented REST APIs powering customer self-service portals, serving 850K active subscribers with sub-100ms response times.
-% Baseline B3: Architected event-driven order management system using message queues, reducing service provisioning time by 55% across enterprise operations.
-% Baseline B4: Built automated CI/CD pipelines for microservice deployments, increasing release frequency from monthly to weekly cycles.
-% Baseline B5: Optimized database queries for subscriber usage analytics, achieving 60% improvement in report generation performance.
-\resumeItemListEnd
-\resumeSubheading
-{Virtusa}{Jun 2019 -- Aug 2020}
-{Full Stack Java Developer}{Hyderabad, India}
-\resumeItemListStart
-% ENHANCE baseline sentences V1-V4 with JD keywords
-% CONTEXT: Full-Stack Java, Enterprise Banking Applications
-% DOMAIN-LOCKED: Core banking, payments, transactions, compliance (Finance consulting)
-% Baseline V1: Built transaction processing modules for core banking platform, handling 120K daily payment transactions with 99.7% accuracy.
-% Baseline V2: Engineered REST APIs for payment gateway integrations, reducing transaction settlement time by 40% for enterprise banking clients.
-% Baseline V3: Developed batch processing systems for end-of-day settlements, processing 85K records nightly with automated error reconciliation.
-% Baseline V4: Optimized SQL queries for high-volume transaction tables, achieving 52% reduction in report generation time for compliance audits.
-\resumeItemListEnd
+{{PROJECTS}}
 \resumeSubHeadingListEnd
-%-----------TECHNICAL SKILLS-----------
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Technical Skills  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Technical Skills}
-\begin{itemize}[leftmargin=0.0in, label={}]
-\small{\item{
-\textbf{AI \& Automation}{: {{SKILLS_AI_AUTOMATION}} } \\
-\textbf{Languages}{: {{SKILLS_LANGUAGES}} } \\
-\textbf{Frameworks \& Web}{: {{SKILLS_FRAMEWORKS}} } \\
-\textbf{Data \& Databases}{: {{SKILLS_DATA}} } \\
-\textbf{Cloud \& DevOps}{: {{SKILLS_CLOUD}} } \\
-\textbf{Tools \& Platforms}{: {{SKILLS_TOOLS}} } \\
+\vspace{-7pt}
+\begin{itemize}
+[leftmargin=0.15in, label={}]\small{\item{
+{{SKILLS}}
 }}
 \end{itemize}
-%-----------EDUCATION-----------
-\section{Education}
-\resumeSubHeadingListStart
-\item\small{
-\textbf{{University of Windsor}\hfill {Sep 2020 -- Dec 2021}}
-}
-\item\small{
-{Master of Science in Computer Science}\hfill{Windsor, ON}
-}
-\item\small{
-\textbf{{Dharmsinh Desai University}\hfill {Sep 2014 -- May 2018}}
-}
-\item\small{
-{Bachelor of Technology in Information Technology}\hfill{Gujarat, India}
-}
-\resumeSubHeadingListEnd
-%-----------CERTIFICATIONS-----------
-\section{Certifications}
-\resumeSubHeadingListStart
-\item\small{
-\textbf{Microsoft Certified: Azure AI Engineer Associate} \hfill Jan 2026
-}
-\item\small{
-\textbf{Microsoft Certified: Azure AI Fundamentals} \hfill Jan 2026
-}
-\item\small{
-\textbf{n8n Course Completion} \hfill Aug 2024
-}
-\item\small{
-\textbf{Make.com "Level 5" Expert Certification} \hfill Jan 2024
-}
-\resumeSubHeadingListEnd
+
 \end{document}
