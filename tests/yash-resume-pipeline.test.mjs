@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { mkdtemp, rm, writeFile as writeFileTest, mkdir as mkdirTest } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile as writeFileTest, mkdir as mkdirTest, readFile as readFileTest } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, slugify } from '../yash-resume-pipeline.mjs';
@@ -311,6 +311,58 @@ test('check-duplicate: directory at JD path is NOT treated as JD existing', asyn
     const obj = JSON.parse(stdout.trim());
     assert.equal(obj.exists, false);
     assert.deepEqual(obj.which, []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('mark-processed: moves URL from Pendientes to Procesadas with metadata', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `# Job Pipeline
+
+## Pendientes
+
+- [ ] https://jobs.lever.co/openai/abc-123
+
+## Procesadas
+
+`);
+  try {
+    await execFileP('node', [SCRIPT,
+      'mark-processed',
+      '--url', 'https://jobs.lever.co/openai/abc-123',
+      '--company', 'OpenAI',
+      '--role', 'AI Engineer',
+      '--jd', 'jds/JD_Openai_AiEngineer_Yash_Anghan_2026-05-07.md',
+      '--pdf', 'resumes/Openai_AiEngineer_Yash_Anghan_Resume_2026-05-07.pdf',
+      '--score', '92',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    assert.doesNotMatch(result, /- \[ \] https:\/\/jobs\.lever\.co\/openai\/abc-123/);
+    assert.match(result, /- \[x\] https:\/\/jobs\.lever\.co\/openai\/abc-123 \| OpenAI \| AI Engineer \| JD ✅ \| Resume ✅ \| Score 92\/100/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('mark-processed: idempotent — running twice does not duplicate', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes
+
+- [ ] https://x.com/job
+
+## Procesadas
+
+`);
+  const args = ['mark-processed', '--url', 'https://x.com/job', '--company', 'X', '--role', 'Eng', '--jd', 'a', '--pdf', 'b', '--score', '90'];
+  try {
+    await execFileP('node', [SCRIPT, ...args], { cwd: dir });
+    await execFileP('node', [SCRIPT, ...args], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    const occurrences = (result.match(/https:\/\/x\.com\/job/g) || []).length;
+    assert.equal(occurrences, 1, 'URL should appear exactly once after two mark-processed calls');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

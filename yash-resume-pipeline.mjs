@@ -130,6 +130,46 @@ export function findFirstPending(content) {
   return null;
 }
 
+// === Atomic pipeline.md write helpers ===
+async function writePipelineAtomic(content) {
+  const path = pipelinePath();
+  const tmp = `${path}.tmp`;
+  await writeFile(tmp, content);
+  await rename(tmp, path);
+}
+
+// Find the section header line index; -1 if not found.
+function findSectionStart(lines, sectionName) {
+  return lines.findIndex((l) => l.trim() === `## ${sectionName}`);
+}
+
+// Returns { lines, pendientesIdx, procesadasIdx } or fails if structure invalid.
+function parsePipelineSections(content) {
+  const lines = content.split(/\r?\n/);
+  const pendientesIdx = findSectionStart(lines, 'Pendientes');
+  const procesadasIdx = findSectionStart(lines, 'Procesadas');
+  if (pendientesIdx === -1) fail('pipeline.md missing `## Pendientes` section');
+  if (procesadasIdx === -1) fail('pipeline.md missing `## Procesadas` section');
+  return { lines, pendientesIdx, procesadasIdx };
+}
+
+// Remove all line(s) matching `- [<state>] <url>` (any state) for the given URL.
+function removeUrlLines(lines, url) {
+  const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^- \\[.\\] ${escaped}( |$)`);
+  return lines.filter((l) => !re.test(l));
+}
+
+// Insert a line at the bottom of a given section (just before the next ## or EOF).
+function insertAtSectionEnd(lines, sectionIdx, newLine) {
+  let insertIdx = lines.length;
+  for (let i = sectionIdx + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('## ')) { insertIdx = i; break; }
+  }
+  while (insertIdx > sectionIdx + 1 && lines[insertIdx - 1].trim() === '') insertIdx--;
+  return [...lines.slice(0, insertIdx), newLine, ...lines.slice(insertIdx)];
+}
+
 // === Subcommand stubs (filled in subsequent tasks) ===
 const SUBCOMMANDS = {
   // populated as we go
@@ -165,6 +205,21 @@ SUBCOMMANDS['check-duplicate'] = async (args) => {
   if (await fileExists(jd_abs)) which.push('jd');
   if (await fileExists(pdf_abs)) which.push('pdf');
   ok({ exists: which.length > 0, which, jd_path: jd_rel, pdf_path: pdf_rel });
+};
+
+SUBCOMMANDS['mark-processed'] = async (args) => {
+  const { url, company, role, jd, pdf, score } = args;
+  if (!url || !company || !role || !jd || !pdf || score === undefined) {
+    fail('mark-processed requires --url, --company, --role, --jd, --pdf, --score');
+  }
+  const content = await readPipeline();
+  const { lines } = parsePipelineSections(content);
+  const cleaned = removeUrlLines(lines, url);
+  const procesadasIdx = findSectionStart(cleaned, 'Procesadas');
+  const newLine = `- [x] ${url} | ${company} | ${role} | JD ✅ | Resume ✅ | Score ${score}/100`;
+  const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
+  await writePipelineAtomic(updated.join('\n'));
+  ok({});
 };
 
 // === Dispatcher (CLI mode only) ===
