@@ -25,6 +25,23 @@ function resumesDir() { return resolve(projectRoot(), 'resumes'); }
 function pdfGeneratorPath() { return resolve(projectRoot(), 'generate-pdf-latex.mjs'); }
 
 // === Output helpers ===
+async function fileExists(p) {
+  try { await stat(p); return true; } catch { return false; }
+}
+
+export function buildJdPath(company_slug, role_slug, date) {
+  return `jds/JD_${company_slug}_${role_slug}_Yash_Anghan_${date}.md`;
+}
+export function buildPdfPath(company_slug, role_slug, date) {
+  return `resumes/${company_slug}_${role_slug}_Yash_Anghan_Resume_${date}.pdf`;
+}
+export function buildTexPath(company_slug, role_slug, date) {
+  return `resumes/${company_slug}_${role_slug}_Yash_Anghan_Resume_${date}.tex`;
+}
+export function buildSidecarLogPath(company_slug, role_slug, date) {
+  return `resumes/${company_slug}_${role_slug}_Yash_Anghan_Resume_${date}.log`;
+}
+
 export function ok(payload = {}) {
   process.stdout.write(JSON.stringify({ status: 'ok', ...payload }) + '\n');
   process.exit(0);
@@ -127,6 +144,21 @@ SUBCOMMANDS['next-pending'] = async () => {
   const next = findFirstPending(content);
   if (!next) emptyOk();
   ok(next);
+};
+
+SUBCOMMANDS['check-duplicate'] = async (args) => {
+  const cs = args['company-slug'];
+  const rs = args['role-slug'];
+  const date = args.date;
+  if (!cs || !rs || !date) fail('check-duplicate requires --company-slug, --role-slug, --date');
+  const jd_rel = buildJdPath(cs, rs, date);
+  const pdf_rel = buildPdfPath(cs, rs, date);
+  const jd_abs = resolve(projectRoot(), jd_rel);
+  const pdf_abs = resolve(projectRoot(), pdf_rel);
+  const which = [];
+  if (await fileExists(jd_abs)) which.push('jd');
+  if (await fileExists(pdf_abs)) which.push('pdf');
+  ok({ exists: which.length > 0, which, jd_path: jd_rel, pdf_path: pdf_rel });
 };
 
 // === Dispatcher (CLI mode only) ===

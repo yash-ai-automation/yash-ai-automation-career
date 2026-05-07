@@ -212,3 +212,65 @@ test('next-pending: handles Windows \\r\\n line endings', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('check-duplicate: neither file exists → exists=false', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'jds'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate',
+      '--company-slug', 'AcmeInc',
+      '--role-slug', 'Engineer',
+      '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'ok');
+    assert.equal(obj.exists, false);
+    assert.equal(obj.jd_path, 'jds/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md');
+    assert.equal(obj.pdf_path, 'resumes/AcmeInc_Engineer_Yash_Anghan_Resume_2026-05-07.pdf');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('check-duplicate: only JD exists → exists=true, which=[jd]', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'jds'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await writeFileTest(join(dir, 'jds/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md'), 'x');
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate',
+      '--company-slug', 'AcmeInc',
+      '--role-slug', 'Engineer',
+      '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, true);
+    assert.deepEqual(obj.which, ['jd']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('check-duplicate: both exist → exists=true, which=[jd,pdf]', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'jds'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await writeFileTest(join(dir, 'jds/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md'), 'x');
+  await writeFileTest(join(dir, 'resumes/AcmeInc_Engineer_Yash_Anghan_Resume_2026-05-07.pdf'), 'x');
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate',
+      '--company-slug', 'AcmeInc',
+      '--role-slug', 'Engineer',
+      '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, true);
+    assert.deepEqual(obj.which.sort(), ['jd', 'pdf']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
