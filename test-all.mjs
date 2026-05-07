@@ -314,6 +314,17 @@ if (fileExists('VERSION')) {
   fail('VERSION file missing');
 }
 
+// ── 11. YASH RESUME PIPELINE UNIT TESTS ─────────────────────────
+
+console.log('\n11. yash-resume-pipeline unit tests');
+
+const ypResult = run('node', ['--test', 'tests/yash-resume-pipeline.test.mjs'], { timeout: 60000 });
+if (ypResult !== null) {
+  pass('yash-resume-pipeline tests passed');
+} else {
+  fail('yash-resume-pipeline.test.mjs failed');
+}
+
 // ── SUMMARY ─────────────────────────────────────────────────────
 
 console.log('\n' + '='.repeat(50));
