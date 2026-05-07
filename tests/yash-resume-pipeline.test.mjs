@@ -274,3 +274,44 @@ test('check-duplicate: both exist → exists=true, which=[jd,pdf]', async () => 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('check-duplicate: PDF-only exists → exists=true, which=[pdf]', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'jds'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await writeFileTest(join(dir, 'resumes/AcmeInc_Engineer_Yash_Anghan_Resume_2026-05-07.pdf'), 'x');
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate',
+      '--company-slug', 'AcmeInc',
+      '--role-slug', 'Engineer',
+      '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, true);
+    assert.deepEqual(obj.which, ['pdf']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('check-duplicate: directory at JD path is NOT treated as JD existing', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'jds'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  // Create a directory (not a file) at the expected JD path
+  await mkdirTest(join(dir, 'jds/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md'), { recursive: true });
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate',
+      '--company-slug', 'AcmeInc',
+      '--role-slug', 'Engineer',
+      '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, false);
+    assert.deepEqual(obj.which, []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

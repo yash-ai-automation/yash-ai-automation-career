@@ -26,7 +26,13 @@ function pdfGeneratorPath() { return resolve(projectRoot(), 'generate-pdf-latex.
 
 // === Output helpers ===
 async function fileExists(p) {
-  try { await stat(p); return true; } catch { return false; }
+  try {
+    const s = await stat(p);
+    return s.isFile();
+  } catch (e) {
+    if (e.code === 'ENOENT') return false;
+    throw e;
+  }
 }
 
 export function buildJdPath(company_slug, role_slug, date) {
