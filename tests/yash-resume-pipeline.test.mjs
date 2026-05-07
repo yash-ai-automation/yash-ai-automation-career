@@ -4,7 +4,17 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
+import { mkdtemp, rm, writeFile as writeFileTest, mkdir as mkdirTest } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs, slugify } from '../yash-resume-pipeline.mjs';
+
+async function makeTempPipelineFile(content) {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), content);
+  return dir;
+}
 
 const execFileP = promisify(execFile);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -112,4 +122,80 @@ test('slugify CLI: missing --company flag returns fail', async () => {
   const obj = JSON.parse(stdout);
   assert.equal(obj.status, 'fail');
   assert.match(obj.error, /empty.*company.*slug/i);
+});
+
+test('next-pending: returns first `- [ ] <url>` line', async () => {
+  const dir = await makeTempPipelineFile(`# Job Pipeline
+
+## Pendientes
+
+- [ ] https://jobs.lever.co/openai/abc-123
+- [ ] https://boards.greenhouse.io/anthropic/jobs/4567
+
+## Procesadas
+
+- [x] https://done.example.com | Acme | PM | JD ✅ | Resume ✅ | Score 91/100
+`);
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT, 'next-pending'], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'ok');
+    assert.equal(obj.url, 'https://jobs.lever.co/openai/abc-123');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('next-pending: skips `- [!]` and `- [x]` lines', async () => {
+  const dir = await makeTempPipelineFile(`## Pendientes
+
+- [!] https://failed.example.com — reason: 404
+- [x] https://done.example.com
+- [ ] https://still-pending.example.com
+`);
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT, 'next-pending'], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.url, 'https://still-pending.example.com');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('next-pending: empty queue returns status=empty', async () => {
+  const dir = await makeTempPipelineFile(`## Pendientes
+
+- [!] https://stuck.example.com — reason: auth required
+
+## Procesadas
+
+- [x] https://done.example.com
+`);
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT, 'next-pending'], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'empty');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('next-pending: missing pipeline.md returns fail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  try {
+    let code = 0, stdout = '';
+    try {
+      const r = await execFileP('node', [SCRIPT, 'next-pending'], { cwd: dir });
+      stdout = r.stdout.trim();
+    } catch (e) {
+      code = e.code ?? 1;
+      stdout = (e.stdout ?? '').trim();
+    }
+    assert.equal(code, 1);
+    const obj = JSON.parse(stdout);
+    assert.equal(obj.status, 'fail');
+    assert.match(obj.error, /pipeline\.md/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

@@ -13,12 +13,16 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 const execFileP = promisify(execFile);
+// ROOT is kept for any legacy references; path helpers below use process.cwd() instead.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)));
-const PIPELINE_PATH = resolve(ROOT, 'data/pipeline.md');
-const RUNS_LOG_PATH = resolve(ROOT, 'data/yash-resume-runs.log');
-const JDS_DIR = resolve(ROOT, 'jds');
-const RESUMES_DIR = resolve(ROOT, 'resumes');
-const PDF_GENERATOR = resolve(ROOT, 'generate-pdf-latex.mjs');
+
+// === cwd-anchored path helpers (tests run in temp dirs) ===
+function projectRoot() { return process.cwd(); }
+function pipelinePath() { return resolve(projectRoot(), 'data/pipeline.md'); }
+function runsLogPath() { return resolve(projectRoot(), 'data/yash-resume-runs.log'); }
+function jdsDir() { return resolve(projectRoot(), 'jds'); }
+function resumesDir() { return resolve(projectRoot(), 'resumes'); }
+function pdfGeneratorPath() { return resolve(projectRoot(), 'generate-pdf-latex.mjs'); }
 
 // === Output helpers ===
 export function ok(payload = {}) {
@@ -84,6 +88,25 @@ export function dateToday() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// === Pipeline.md helpers ===
+async function readPipeline() {
+  try {
+    return await readFile(pipelinePath(), 'utf-8');
+  } catch (e) {
+    if (e.code === 'ENOENT') fail(`pipeline.md not found at ${pipelinePath()}`);
+    fail(`failed to read pipeline.md: ${e.message}`);
+  }
+}
+
+export function findFirstPending(content) {
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^- \[ \] (\S+)/);
+    if (m) return { url: m[1], line_number: i + 1 };
+  }
+  return null;
+}
+
 // === Subcommand stubs (filled in subsequent tasks) ===
 const SUBCOMMANDS = {
   // populated as we go
@@ -97,6 +120,13 @@ SUBCOMMANDS['slugify'] = async (args) => {
   if (!company_slug) fail('empty company slug after normalization');
   if (!role_slug) fail('empty role slug after normalization');
   ok({ company_slug, role_slug, date: dateToday() });
+};
+
+SUBCOMMANDS['next-pending'] = async () => {
+  const content = await readPipeline();
+  const next = findFirstPending(content);
+  if (!next) emptyOk();
+  ok(next);
 };
 
 // === Dispatcher (CLI mode only) ===
