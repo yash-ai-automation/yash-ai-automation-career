@@ -199,3 +199,16 @@ test('next-pending: missing pipeline.md returns fail', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('next-pending: handles Windows \\r\\n line endings', async () => {
+  const content = `## Pendientes\r\n\r\n- [ ] https://crlf.example.com\r\n`;
+  const dir = await makeTempPipelineFile(content);
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT, 'next-pending'], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'ok');
+    assert.equal(obj.url, 'https://crlf.example.com');  // no trailing \r
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

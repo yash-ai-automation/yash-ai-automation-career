@@ -94,14 +94,14 @@ async function readPipeline() {
     return await readFile(pipelinePath(), 'utf-8');
   } catch (e) {
     if (e.code === 'ENOENT') fail(`pipeline.md not found at ${pipelinePath()}`);
-    fail(`failed to read pipeline.md: ${e.message}`);
+    else fail(`failed to read pipeline.md: ${e.message}`);
   }
 }
 
 export function findFirstPending(content) {
-  const lines = content.split('\n');
+  const lines = content.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^- \[ \] (\S+)/);
+    const m = lines[i].match(/^\s*[-*] \[ \] (\S+)/);
     if (m) return { url: m[1], line_number: i + 1 };
   }
   return null;
