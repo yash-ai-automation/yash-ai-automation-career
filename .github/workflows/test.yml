@@ -15,5 +15,10 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
+      - name: Install Tectonic (for compile-resume tests)
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
+          sudo mv tectonic /usr/local/bin/tectonic
+          tectonic --version
       - run: npm install
       - run: node test-all.mjs --quick
