@@ -462,3 +462,71 @@ test('mark-failed: replaces existing [!] reason in place (idempotent on URL)', a
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('log: appends one JSON line per call, creates file if missing', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  try {
+    await execFileP('node', [SCRIPT,
+      'log', '--status', 'ok', '--url', 'https://x.com/1',
+      '--slug', 'X_E', '--score', '92', '--jd', 'a', '--pdf', 'b',
+    ], { cwd: dir });
+    await execFileP('node', [SCRIPT,
+      'log', '--status', 'fail', '--url', 'https://x.com/2', '--reason', 'oops',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/yash-resume-runs.log'), 'utf-8');
+    const lines = result.trim().split('\n');
+    assert.equal(lines.length, 2);
+    const e1 = JSON.parse(lines[0]);
+    const e2 = JSON.parse(lines[1]);
+    assert.equal(e1.status, 'ok');
+    assert.equal(e1.url, 'https://x.com/1');
+    assert.equal(e1.score, '92');
+    assert.match(e1.timestamp, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(e2.status, 'fail');
+    assert.equal(e2.reason, 'oops');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('log: rejects unknown status', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  try {
+    let code = 0, stdout = '';
+    try {
+      const r = await execFileP('node', [SCRIPT,
+        'log', '--status', 'wat', '--url', 'https://x.com',
+      ], { cwd: dir });
+      stdout = r.stdout.trim();
+    } catch (e) {
+      code = e.code ?? 1;
+      stdout = (e.stdout ?? '').trim();
+    }
+    assert.equal(code, 1);
+    const obj = JSON.parse(stdout);
+    assert.equal(obj.status, 'fail');
+    assert.match(obj.error, /status must be ok\|fail\|skip/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('log: creates data directory if missing', async () => {
+  // Test that mkdir -p the data/ dir if it doesn't already exist
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  // intentionally NOT creating data/
+  try {
+    await execFileP('node', [SCRIPT,
+      'log', '--status', 'skip', '--url', 'https://x.com/3', '--reason', 'dup',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/yash-resume-runs.log'), 'utf-8');
+    const entry = JSON.parse(result.trim());
+    assert.equal(entry.status, 'skip');
+    assert.equal(entry.url, 'https://x.com/3');
+    assert.equal(entry.reason, 'dup');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

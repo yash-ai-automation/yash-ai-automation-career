@@ -257,6 +257,27 @@ SUBCOMMANDS['mark-skipped'] = async (args) => {
   ok({});
 };
 
+// === log subcommand ===
+const ALLOWED_LOG_STATUSES = new Set(['ok', 'fail', 'skip']);
+
+SUBCOMMANDS['log'] = async (args) => {
+  const { status, url } = args;
+  if (!status) fail('log requires --status');
+  if (!ALLOWED_LOG_STATUSES.has(status)) fail('status must be ok|fail|skip');
+  if (!url) fail('log requires --url');
+
+  const payload = { timestamp: new Date().toISOString(), status, url };
+  const optionalKeys = ['slug', 'score', 'jd', 'pdf', 'reason'];
+  for (const k of optionalKeys) {
+    if (args[k] !== undefined) payload[k] = args[k];
+  }
+
+  const logPath = runsLogPath();
+  await mkdir(dirname(logPath), { recursive: true });
+  await appendFile(logPath, JSON.stringify(payload) + '\n');
+  ok({});
+};
+
 // === Dispatcher (CLI mode only) ===
 async function main() {
   const subcommand = process.argv[2];
