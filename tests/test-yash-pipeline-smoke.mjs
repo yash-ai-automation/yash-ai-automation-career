@@ -32,10 +32,22 @@ let pass = 0, fail = 0;
 function ok(msg) { console.log('  ✅', msg); pass++; }
 function ng(msg) { console.log('  ❌', msg); fail++; }
 
+// Whitelist of fixture filenames the test server is allowed to serve.
+// Prevents path-traversal via `req.url` (CodeQL: "Uncontrolled data in path").
+const ALLOWED_FIXTURES = new Set([
+  'lever-sample.html',
+  'ashby-sample.html',
+  'greenhouse-sample.html',
+]);
+
 function serveFixtures(port) {
   return new Promise((resolveSrv) => {
     const server = createServer((req, res) => {
-      const file = req.url.replace(/^\//, '') || 'lever-sample.html';
+      const file = (req.url || '/').replace(/^\//, '') || 'lever-sample.html';
+      if (!ALLOWED_FIXTURES.has(file)) {
+        res.writeHead(404); res.end('not found');
+        return;
+      }
       try {
         const content = readFileSync(resolve(FIXTURES, file));
         res.writeHead(200, { 'content-type': 'text/html' });
