@@ -46,7 +46,7 @@ Repeat until queue empty, user quits, or 3 consecutive failures:
    - Extract `company`, `role`, `location`, `posted_date`.
    - Use the URL host as a portal hint: `lever`, `ashby`, `greenhouse`, `workday`, or `other`.
    - If `company` or `role` confidence is low, ask user once to confirm/correct.
-   - If user can't say, run `mark-failed --reason "could not determine company/role"` and continue.
+   - If user can't say, run `mark-failed --url <url> --reason "could not determine company/role"` and continue.
 
 5. **Slugify and dedup check:**
 
@@ -61,7 +61,7 @@ Repeat until queue empty, user quits, or 3 consecutive failures:
        --company-slug <c> --role-slug <r> --date <d>
    ```
 
-   If `exists: true` → run `mark-skipped --reason "duplicate (jd+pdf already exist)"` and continue.
+   If `exists: true` → run `mark-skipped --url <url> --reason "duplicate (jd+pdf already exist)"` and continue.
 
 6. **Write JD .md** to `jds/JD_<c>_<r>_Yash_Anghan_<d>.md`:
 
@@ -101,8 +101,8 @@ Repeat until queue empty, user quits, or 3 consecutive failures:
    - If present: everything before that line = deficiency log; everything from
      `\documentclass` to end of output = LaTeX block.
    - If absent: hard-fail. Run
-     `mark-failed --reason "V2.0 hard-fail: <SENTENCE_COUNT|SKILLS_OVERFLOW>"`
-     and `log --status fail`. Save the full output to the sidecar `.log`. Continue.
+     `mark-failed --url <url> --reason "V2.0 hard-fail: <SENTENCE_COUNT|SKILLS_OVERFLOW>"`
+     and `log --status fail --url <url> --reason "V2.0 hard-fail: <SENTENCE_COUNT|SKILLS_OVERFLOW>"`. Save the full output to the sidecar `.log`. Continue.
 
 8. **Write `.tex`:** save the LaTeX block (from `\documentclass` onward) to
    `resumes/<c>_<r>_Yash_Anghan_Resume_<d>.tex`.
@@ -116,8 +116,8 @@ Repeat until queue empty, user quits, or 3 consecutive failures:
    ```
 
    If `status: fail`:
-   - run `mark-failed --reason "tectonic: <tectonic_log_tail>"`
-   - run `log --status fail --reason "tectonic: ..."`
+   - run `mark-failed --url <url> --reason "tectonic: <tectonic_log_tail>"`
+   - run `log --status fail --url <url> --reason "tectonic: ..."`
    - keep the .tex on disk for inspection
    - ask user: continue?
 

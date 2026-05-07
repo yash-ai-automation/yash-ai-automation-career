@@ -598,3 +598,61 @@ test('compile-resume: missing tex file returns fail', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('mark-failed: sanitizes multiline reason to single line', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes\n\n- [ ] https://x.com/job\n\n## Procesadas\n\n`);
+  try {
+    await execFileP('node', [SCRIPT,
+      'mark-failed', '--url', 'https://x.com/job', '--reason', 'line one\nline two\r\nline three',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    assert.match(result, /- \[!\] https:\/\/x\.com\/job — reason: line one line two line three/);
+    assert.doesNotMatch(result, /- \[!\] https:\/\/x\.com\/job — reason: line one\n/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('mark-processed: rejects pipe character in company name', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes\n\n- [ ] https://x.com/job\n\n## Procesadas\n\n`);
+  try {
+    let code = 0, stdout = '';
+    try {
+      const r = await execFileP('node', [SCRIPT,
+        'mark-processed', '--url', 'https://x.com/job', '--company', 'Acme | Co', '--role', 'Eng',
+        '--jd', 'a', '--pdf', 'b', '--score', '90'], { cwd: dir });
+      stdout = r.stdout.trim();
+    } catch (e) {
+      code = e.code ?? 1;
+      stdout = (e.stdout ?? '').trim();
+    }
+    assert.equal(code, 1);
+    const obj = JSON.parse(stdout);
+    assert.equal(obj.status, 'fail');
+    assert.match(obj.error, /cannot contain `\|`/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('compile-resume: works when invoked from non-project-root cwd', async () => {
+  // The pdfGeneratorPath should anchor to ROOT (script location), not cwd.
+  // This test invokes the script from /tmp and confirms it can find generate-pdf-latex.mjs.
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-cwd-test-'));
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  // Note: NO copy of generate-pdf-latex.mjs into dir — it should resolve via the script's ROOT.
+  await copyFile(resolve(ROOT, 'tests/fixtures/sample-good.tex'), join(dir, 'resumes/test.tex'));
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'compile-resume', '--tex', 'resumes/test.tex', '--pdf', 'resumes/test.pdf',
+    ], { cwd: dir, timeout: 60000 });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'ok');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

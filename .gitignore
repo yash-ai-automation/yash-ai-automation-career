@@ -14,6 +14,9 @@ batch/tracker-additions/*.tsv
 !batch/tracker-additions/.gitkeep
 jds/*
 !jds/.gitkeep
+resumes/*
+!resumes/.gitkeep
+data/yash-resume-runs.log
 
 # User config and customization (never auto-updated)
 config/profile.yml

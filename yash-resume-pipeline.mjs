@@ -22,7 +22,7 @@ function pipelinePath() { return resolve(projectRoot(), 'data/pipeline.md'); }
 function runsLogPath() { return resolve(projectRoot(), 'data/yash-resume-runs.log'); }
 function jdsDir() { return resolve(projectRoot(), 'jds'); }
 function resumesDir() { return resolve(projectRoot(), 'resumes'); }
-function pdfGeneratorPath() { return resolve(projectRoot(), 'generate-pdf-latex.mjs'); }
+function pdfGeneratorPath() { return resolve(ROOT, 'generate-pdf-latex.mjs'); }
 
 // === Output helpers ===
 async function fileExists(p) {
@@ -109,6 +109,12 @@ export function slugify(input) {
 
 export function dateToday() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// === Sanitize helpers ===
+function sanitizeReason(reason) {
+  if (typeof reason !== 'string') return reason;
+  return reason.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 // === Pipeline.md helpers ===
@@ -221,6 +227,9 @@ SUBCOMMANDS['mark-processed'] = async (args) => {
     fail('mark-processed requires --url, --company, --role, --jd, --pdf, --score');
   }
   if (!/^\d+$/.test(String(score))) fail(`--score must be a non-negative integer, got: ${score}`);
+  if (company.includes('|') || role.includes('|')) {
+    fail('--company and --role cannot contain `|` (used as field separator in pipeline.md)');
+  }
   const content = await readPipeline();
   const { lines } = parsePipelineSections(content);
   const cleaned = removeUrlLines(lines, url);
@@ -238,7 +247,7 @@ SUBCOMMANDS['mark-failed'] = async (args) => {
   const { lines } = parsePipelineSections(content);
   const cleaned = removeUrlLines(lines, url);
   const pendientesIdx = findSectionStart(cleaned, 'Pendientes');
-  const newLine = `- [!] ${url} — reason: ${reason}`;
+  const newLine = `- [!] ${url} — reason: ${sanitizeReason(reason)}`;
   const updated = insertAtSectionEnd(cleaned, pendientesIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
   ok({});
@@ -251,7 +260,7 @@ SUBCOMMANDS['mark-skipped'] = async (args) => {
   const { lines } = parsePipelineSections(content);
   const cleaned = removeUrlLines(lines, url);
   const procesadasIdx = findSectionStart(cleaned, 'Procesadas');
-  const newLine = `- [~] ${url} — skipped: ${reason}`;
+  const newLine = `- [~] ${url} — skipped: ${sanitizeReason(reason)}`;
   const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
   ok({});
@@ -269,7 +278,8 @@ SUBCOMMANDS['log'] = async (args) => {
   const payload = { timestamp: new Date().toISOString(), status, url };
   const optionalKeys = ['slug', 'score', 'jd', 'pdf', 'reason'];
   for (const k of optionalKeys) {
-    if (args[k] !== undefined) payload[k] = args[k];
+    if (k === 'reason' && args[k] !== undefined) payload[k] = sanitizeReason(args[k]);
+    else if (args[k] !== undefined) payload[k] = args[k];
   }
 
   const logPath = runsLogPath();
