@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { mkdtemp, rm, writeFile as writeFileTest, mkdir as mkdirTest, readFile as readFileTest } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile as writeFileTest, mkdir as mkdirTest, readFile as readFileTest, copyFile, stat as statTest } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, slugify } from '../yash-resume-pipeline.mjs';
@@ -526,6 +526,74 @@ test('log: creates data directory if missing', async () => {
     assert.equal(entry.status, 'skip');
     assert.equal(entry.url, 'https://x.com/3');
     assert.equal(entry.reason, 'dup');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('compile-resume: good .tex produces a real PDF', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await copyFile(resolve(ROOT, 'tests/fixtures/sample-good.tex'), join(dir, 'resumes/test.tex'));
+  await copyFile(resolve(ROOT, 'generate-pdf-latex.mjs'), join(dir, 'generate-pdf-latex.mjs'));
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'compile-resume', '--tex', 'resumes/test.tex', '--pdf', 'resumes/test.pdf',
+    ], { cwd: dir, timeout: 60000 });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.status, 'ok');
+    assert.equal(obj.pdf_path, 'resumes/test.pdf');
+    const st = await statTest(join(dir, 'resumes/test.pdf'));
+    assert.ok(st.size > 100, 'PDF should be non-trivial size');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('compile-resume: bad .tex returns fail with tectonic_log_tail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await copyFile(resolve(ROOT, 'tests/fixtures/sample-bad.tex'), join(dir, 'resumes/bad.tex'));
+  await copyFile(resolve(ROOT, 'generate-pdf-latex.mjs'), join(dir, 'generate-pdf-latex.mjs'));
+  try {
+    let code = 0, stdout = '';
+    try {
+      const r = await execFileP('node', [SCRIPT,
+        'compile-resume', '--tex', 'resumes/bad.tex', '--pdf', 'resumes/bad.pdf',
+      ], { cwd: dir, timeout: 60000 });
+      stdout = r.stdout.trim();
+    } catch (e) {
+      code = e.code ?? 1;
+      stdout = (e.stdout ?? '').trim();
+    }
+    assert.equal(code, 1);
+    const obj = JSON.parse(stdout);
+    assert.equal(obj.status, 'fail');
+    assert.match(obj.error, /tectonic|exit/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('compile-resume: missing tex file returns fail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'resumes'), { recursive: true });
+  await copyFile(resolve(ROOT, 'generate-pdf-latex.mjs'), join(dir, 'generate-pdf-latex.mjs'));
+  try {
+    let code = 0, stdout = '';
+    try {
+      const r = await execFileP('node', [SCRIPT,
+        'compile-resume', '--tex', 'resumes/nonexistent.tex', '--pdf', 'resumes/x.pdf',
+      ], { cwd: dir, timeout: 30000 });
+      stdout = r.stdout.trim();
+    } catch (e) {
+      code = e.code ?? 1;
+      stdout = (e.stdout ?? '').trim();
+    }
+    assert.equal(code, 1);
+    const obj = JSON.parse(stdout);
+    assert.equal(obj.status, 'fail');
+    assert.match(obj.error, /tex file not found/i);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
