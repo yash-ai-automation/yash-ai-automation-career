@@ -6,7 +6,7 @@
  * Importable: pure functions (slugify, parsers) are exported for unit tests.
  */
 
-import { readFile, writeFile, rename, stat, appendFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, rename, unlink, stat, appendFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve, basename } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -134,8 +134,16 @@ export function findFirstPending(content) {
 async function writePipelineAtomic(content) {
   const path = pipelinePath();
   const tmp = `${path}.tmp`;
-  await writeFile(tmp, content);
-  await rename(tmp, path);
+  // Always end with trailing newline for POSIX compliance
+  const final = content.endsWith('\n') ? content : content + '\n';
+  await writeFile(tmp, final);
+  try {
+    await rename(tmp, path);
+  } catch (e) {
+    // Clean up orphaned .tmp on rename failure (cross-device, locked, etc.)
+    await unlink(tmp).catch(() => {});
+    throw e;
+  }
 }
 
 // Find the section header line index; -1 if not found.
@@ -212,6 +220,7 @@ SUBCOMMANDS['mark-processed'] = async (args) => {
   if (!url || !company || !role || !jd || !pdf || score === undefined) {
     fail('mark-processed requires --url, --company, --role, --jd, --pdf, --score');
   }
+  if (!/^\d+$/.test(String(score))) fail(`--score must be a non-negative integer, got: ${score}`);
   const content = await readPipeline();
   const { lines } = parsePipelineSections(content);
   const cleaned = removeUrlLines(lines, url);
