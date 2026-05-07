@@ -40,7 +40,15 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith('--')) continue;
-    const key = a.slice(2);
+    const flagBody = a.slice(2);
+    if (flagBody.includes('=')) {
+      const eq = flagBody.indexOf('=');
+      const key = flagBody.slice(0, eq);
+      const value = flagBody.slice(eq + 1);
+      out[key] = value;
+      continue;
+    }
+    const key = flagBody;
     const next = argv[i + 1];
     if (next === undefined || next.startsWith('--')) {
       out[key] = true;

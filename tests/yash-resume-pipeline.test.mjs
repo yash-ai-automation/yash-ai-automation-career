@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
+import { parseArgs } from '../yash-resume-pipeline.mjs';
 
 const execFileP = promisify(execFile);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,4 +33,19 @@ test('dispatcher: unknown subcommand returns fail JSON', async () => {
   const obj = JSON.parse(stdout);
   assert.equal(obj.status, 'fail');
   assert.match(obj.error, /unknown subcommand: bogus-command/);
+});
+
+test('parseArgs: --key=value style returns { key: "value" }', () => {
+  const result = parseArgs(['--key=value']);
+  assert.deepEqual(result, { key: 'value' });
+});
+
+test('parseArgs: mixed = and space styles', () => {
+  const result = parseArgs(['--name=John Doe', '--count', '5']);
+  assert.deepEqual(result, { name: 'John Doe', count: '5' });
+});
+
+test('parseArgs: bare flag preceding = flag', () => {
+  const result = parseArgs(['--flag', '--key=value']);
+  assert.deepEqual(result, { flag: true, key: 'value' });
 });
