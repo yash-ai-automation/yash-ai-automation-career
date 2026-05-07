@@ -60,9 +60,44 @@ export function parseArgs(argv) {
   return out;
 }
 
+// === Slugify ===
+export function slugify(input) {
+  if (typeof input !== 'string') return '';
+  // Step 0: remove parenthesized groups (e.g. "(Remote)", "(US)")
+  const noParen = input.replace(/\([^)]*\)/g, '');
+  // Step 1: replace runs of non-alnum with single space
+  const cleaned = noParen.replace(/[^a-zA-Z0-9]+/g, ' ').trim();
+  if (!cleaned) return '';
+  // Step 2-5: tokenize, capitalize, concat
+  return cleaned.split(/\s+/).map((token) => {
+    if (token.length === 0) return '';
+    if (token.length >= 2 && token === token.toUpperCase() && /[A-Z]/.test(token)) {
+      // all-caps token of length >= 2: title-case it (AI -> Ai, ML -> Ml)
+      return token[0] + token.slice(1).toLowerCase();
+    }
+    // single-letter or mixed-case: capitalize first, lowercase rest only if not already mixed
+    if (token.length === 1) return token.toUpperCase();
+    return token[0].toUpperCase() + token.slice(1).toLowerCase();
+  }).join('');
+}
+
+export function dateToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 // === Subcommand stubs (filled in subsequent tasks) ===
 const SUBCOMMANDS = {
   // populated as we go
+};
+
+SUBCOMMANDS['slugify'] = async (args) => {
+  const company = args.company ?? '';
+  const role = args.role ?? '';
+  const company_slug = slugify(company);
+  const role_slug = slugify(role);
+  if (!company_slug) fail('empty company slug after normalization');
+  if (!role_slug) fail('empty role slug after normalization');
+  ok({ company_slug, role_slug, date: dateToday() });
 };
 
 // === Dispatcher (CLI mode only) ===
