@@ -396,3 +396,45 @@ test('mark-processed: rejects non-integer score', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('mark-failed: changes [ ] to [!] with reason in Pendientes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes\n\n- [ ] https://dead.example.com\n\n## Procesadas\n\n`);
+  try {
+    await execFileP('node', [SCRIPT,
+      'mark-failed',
+      '--url', 'https://dead.example.com',
+      '--reason', '404 Not Found',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    assert.match(result, /- \[!\] https:\/\/dead\.example\.com — reason: 404 Not Found/);
+    assert.doesNotMatch(result, /- \[ \] https:\/\/dead\.example\.com/);
+    // verify it's in Pendientes, not Procesadas
+    const sections = result.split(/^## /m);
+    const pendientes = sections.find((s) => s.startsWith('Pendientes')) ?? '';
+    const procesadas = sections.find((s) => s.startsWith('Procesadas')) ?? '';
+    assert.match(pendientes, /dead\.example\.com/);
+    assert.doesNotMatch(procesadas, /dead\.example\.com/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('mark-failed: replaces existing [!] reason in place (idempotent on URL)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes\n\n- [!] https://x.com/job — reason: old reason\n\n## Procesadas\n\n`);
+  try {
+    await execFileP('node', [SCRIPT,
+      'mark-failed', '--url', 'https://x.com/job', '--reason', 'new reason',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    const occurrences = (result.match(/https:\/\/x\.com\/job/g) || []).length;
+    assert.equal(occurrences, 1);
+    assert.match(result, /reason: new reason/);
+    assert.doesNotMatch(result, /old reason/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

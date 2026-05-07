@@ -231,6 +231,19 @@ SUBCOMMANDS['mark-processed'] = async (args) => {
   ok({});
 };
 
+SUBCOMMANDS['mark-failed'] = async (args) => {
+  const { url, reason } = args;
+  if (!url || !reason) fail('mark-failed requires --url and --reason');
+  const content = await readPipeline();
+  const { lines } = parsePipelineSections(content);
+  const cleaned = removeUrlLines(lines, url);
+  const pendientesIdx = findSectionStart(cleaned, 'Pendientes');
+  const newLine = `- [!] ${url} — reason: ${reason}`;
+  const updated = insertAtSectionEnd(cleaned, pendientesIdx, newLine);
+  await writePipelineAtomic(updated.join('\n'));
+  ok({});
+};
+
 // === Dispatcher (CLI mode only) ===
 async function main() {
   const subcommand = process.argv[2];
