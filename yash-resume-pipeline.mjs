@@ -244,6 +244,19 @@ SUBCOMMANDS['mark-failed'] = async (args) => {
   ok({});
 };
 
+SUBCOMMANDS['mark-skipped'] = async (args) => {
+  const { url, reason } = args;
+  if (!url || !reason) fail('mark-skipped requires --url and --reason');
+  const content = await readPipeline();
+  const { lines } = parsePipelineSections(content);
+  const cleaned = removeUrlLines(lines, url);
+  const procesadasIdx = findSectionStart(cleaned, 'Procesadas');
+  const newLine = `- [~] ${url} — skipped: ${reason}`;
+  const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
+  await writePipelineAtomic(updated.join('\n'));
+  ok({});
+};
+
 // === Dispatcher (CLI mode only) ===
 async function main() {
   const subcommand = process.argv[2];

@@ -421,6 +421,30 @@ test('mark-failed: changes [ ] to [!] with reason in Pendientes', async () => {
   }
 });
 
+test('mark-skipped: moves URL to Procesadas with [~] and skipped reason', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/pipeline.md'), `## Pendientes\n\n- [ ] https://dup.example.com\n\n## Procesadas\n\n`);
+  try {
+    await execFileP('node', [SCRIPT,
+      'mark-skipped',
+      '--url', 'https://dup.example.com',
+      '--reason', 'duplicate (jd+pdf already exist)',
+    ], { cwd: dir });
+    const result = await readFileTest(join(dir, 'data/pipeline.md'), 'utf-8');
+    assert.match(result, /- \[~\] https:\/\/dup\.example\.com — skipped: duplicate \(jd\+pdf already exist\)/);
+    assert.doesNotMatch(result, /- \[ \] https:\/\/dup\.example\.com/);
+    // verify it's in Procesadas, not Pendientes
+    const sections = result.split(/^## /m);
+    const pendientes = sections.find((s) => s.startsWith('Pendientes')) ?? '';
+    const procesadas = sections.find((s) => s.startsWith('Procesadas')) ?? '';
+    assert.match(procesadas, /dup\.example\.com/);
+    assert.doesNotMatch(pendientes, /dup\.example\.com/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('mark-failed: replaces existing [!] reason in place (idempotent on URL)', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
   await mkdirTest(join(dir, 'data'), { recursive: true });
