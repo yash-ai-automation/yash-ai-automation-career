@@ -70,12 +70,11 @@ export function slugify(input) {
   if (!cleaned) return '';
   // Step 2-5: tokenize, capitalize, concat
   return cleaned.split(/\s+/).map((token) => {
-    if (token.length === 0) return '';
     if (token.length >= 2 && token === token.toUpperCase() && /[A-Z]/.test(token)) {
       // all-caps token of length >= 2: title-case it (AI -> Ai, ML -> Ml)
       return token[0] + token.slice(1).toLowerCase();
     }
-    // single-letter or mixed-case: capitalize first, lowercase rest only if not already mixed
+    // single-letter or mixed-case: first char upper, rest forced lower (spec §5.3 step 4)
     if (token.length === 1) return token.toUpperCase();
     return token[0].toUpperCase() + token.slice(1).toLowerCase();
   }).join('');

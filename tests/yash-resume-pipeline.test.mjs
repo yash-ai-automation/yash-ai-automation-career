@@ -105,3 +105,11 @@ test('slugify CLI: empty company returns fail', async () => {
   assert.equal(obj.status, 'fail');
   assert.match(obj.error, /empty.*company.*slug/i);
 });
+
+test('slugify CLI: missing --company flag returns fail', async () => {
+  const { code, stdout } = await runScript(['slugify', '--role', 'Engineer']);
+  assert.equal(code, 1);
+  const obj = JSON.parse(stdout);
+  assert.equal(obj.status, 'fail');
+  assert.match(obj.error, /empty.*company.*slug/i);
+});
