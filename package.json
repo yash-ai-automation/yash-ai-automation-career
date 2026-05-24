@@ -39,9 +39,13 @@
     "@google/generative-ai": "^0.24.1",
     "dotenv": "^16.4.5",
     "js-yaml": "^4.1.1",
+    "pino": "^10.3.1",
     "playwright": "^1.58.1"
   },
   "devDependencies": {
     "husky": "^9.1.7"
+  },
+  "optionalDependencies": {
+    "@logtail/pino": "^0.5.8"
   }
 }

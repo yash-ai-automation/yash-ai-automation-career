@@ -17,6 +17,9 @@ import { validateUrl } from './url-validate.mjs';
 import { checkDuplicate } from './dedup.mjs';
 import { insertQueueRow, requestCancel, selectQueueLen, upsertTelegramOffset, selectTelegramOffset } from './queue.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
+import { createLogger } from './logger.mjs';
+
+const defaultLogger = createLogger({ service: 'telegram-listener' });
 
 // ── Public sentinel ─────────────────────────────────────────────────────────
 
@@ -48,7 +51,7 @@ export function parseCommand(text) {
  * @param {{ update: object, db: object, allowlist: Set<number>, notifyChatId: number, send: function }} opts
  * @returns {Promise<symbol|null|object>} ALLOWLIST_REJECT | null (no-message update) | dispatch result
  */
-export async function handleUpdate({ update, db, allowlist, notifyChatId, send }) {
+export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger }) {
   const message = update.message;
 
   // Updates with no message object at all → ignore silently.
@@ -58,7 +61,7 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send }
   // Not replying to non-allowlisted senders — replying would confirm the bot to scanners.
   const fromId = message.from && message.from.id;
   if (!allowlist.has(fromId)) {
-    console.warn(`[telegram-listener] WARN: update from non-allowlisted user ${fromId} — ignored`);
+    logger.warn({ event: 'allowlist_reject', from_user_id: fromId, update_id: update.update_id }, 'rejected non-allowlisted sender');
     return ALLOWLIST_REJECT;
   }
 
@@ -188,7 +191,7 @@ export async function main() {
   const notifyChatEnv = process.env.TELEGRAM_NOTIFY_CHAT_ID || '';
 
   if (!allowlistEnv.trim() || !notifyChatEnv.trim()) {
-    console.error('[telegram-listener] FATAL: TELEGRAM_ALLOWLIST and TELEGRAM_NOTIFY_CHAT_ID must both be set. Exiting with code 5.');
+    defaultLogger.fatal({ event: 'config_missing' }, 'TELEGRAM_ALLOWLIST and TELEGRAM_NOTIFY_CHAT_ID must both be set');
     process.exit(5);
   }
 
@@ -196,7 +199,7 @@ export async function main() {
     allowlistEnv.split(',').map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
   );
   if (allowlist.size === 0) {
-    console.error('[telegram-listener] FATAL: TELEGRAM_ALLOWLIST parsed to an empty set. Exiting with code 5.');
+    defaultLogger.fatal({ event: 'config_invalid', reason: 'allowlist_empty' }, 'TELEGRAM_ALLOWLIST parsed to empty set');
     process.exit(5);
   }
   const notifyChatId = parseInt(notifyChatEnv.trim(), 10);
@@ -212,7 +215,12 @@ export async function main() {
 
   const send = (text) => sendMessage(text, { chatId: notifyChatId });
 
-  console.log(`[telegram-listener] Started. Allowlist: ${[...allowlist].join(',')}. Notify chat: ${notifyChatId}`);
+  // Note: allowlist user IDs and notifyChatId are PII; log only count + presence flag.
+  defaultLogger.info({
+    event: 'listener_started',
+    allowlist_size: allowlist.size,
+    notify_chat_configured: notifyChatId > 0,
+  }, 'telegram-listener started');
 
   // Mark service READY for systemd Type=notify, then start the WatchdogSec= pinger.
   // Unit file declares WatchdogSec=90 → ping every 30s (≈1/3 of the timeout).
@@ -223,7 +231,7 @@ export async function main() {
   const onSignal = (sig) => {
     if (!running) return;
     running = false;
-    console.log(`[telegram-listener] Received ${sig}; draining for clean exit.`);
+    defaultLogger.info({ event: 'shutdown_requested', signal: sig }, 'draining for clean exit');
   };
   process.on('SIGTERM', () => onSignal('SIGTERM'));
   process.on('SIGINT', () => onSignal('SIGINT'));
@@ -248,7 +256,7 @@ export async function main() {
     } catch (err) {
       if (!running) break;
       const nextBackoff = Math.min((backoffMs || 5_000) * 3, 15 * 60_000);
-      console.error(`[telegram-listener] getUpdates error: ${err.message}. Backing off ${nextBackoff}ms.`);
+      defaultLogger.error({ event: 'long_poll_error', backoff_ms: nextBackoff, err }, 'getUpdates failed');
       backoffMs = nextBackoff;
       continue;
     }
@@ -257,7 +265,7 @@ export async function main() {
       try {
         await handleUpdate({ update, db, allowlist, notifyChatId, send });
       } catch (err) {
-        console.error(`[telegram-listener] handleUpdate error for update_id=${update.update_id}: ${err.message}`);
+        defaultLogger.error({ event: 'handle_update_failed', update_id: update.update_id, err }, 'handleUpdate threw');
       }
 
       offset = update.update_id + 1;
@@ -272,9 +280,9 @@ export async function main() {
     const { closeDb } = await import('./db.mjs');
     closeDb(db);
   } catch (e) {
-    console.error(`[telegram-listener] closeDb error: ${e.message}`);
+    defaultLogger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw');
   }
-  console.log('[telegram-listener] Exited cleanly.');
+  defaultLogger.info({ event: 'daemon_exit' }, 'telegram-listener exited cleanly');
 }
 
 // Interruptible sleep: resolves when `ms` elapse or `signal()` returns true.
@@ -294,7 +302,7 @@ async function sleepUntilSignal(ms, signal) {
 const isMain = process.argv[1] && process.argv[1].endsWith('telegram-listener.mjs');
 if (isMain) {
   main().catch(err => {
-    console.error('[telegram-listener] Unhandled error in main():', err);
+    defaultLogger.fatal({ event: 'daemon_fatal', err }, 'unhandled error in main()');
     process.exit(1);
   });
 }
