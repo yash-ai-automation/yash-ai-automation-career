@@ -59,7 +59,7 @@ export function formatInputsSummary(inputs) {
     .join('\n');
 }
 
-export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify }) {
+export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false }) {
   const cap = checkCap(db, capLimits);
   const next = selectNextQueued(db);
   if (!next && !cap.capped) return { action: 'idle' };
@@ -89,6 +89,18 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
   }
 
   const endedAt = new Date().toISOString();
+
+  // If the orchestrator is shutting down AND the spawn was killed (non-zero exit
+  // that wasn't a user cancel), leave queue/run/checkpoint state intact so the
+  // resume code path engages on next boot. Without this, the existing post-spawn
+  // fail bookkeeping would delete the checkpoint and reset the queue to 'queued',
+  // forcing a from-scratch redo of every completed phase.
+  if (isShuttingDown() && result.exitCode !== 0 && !isCancelRequested(db, next.id)) {
+    const cp = selectCheckpoint(db, runId);
+    const lastPhase = cp?.last_phase || '(pre-checkpoint)';
+    notify(`⏸️ Run #${runId} paused at \`${lastPhase}\` due to shutdown; will resume on next boot.`);
+    return { action: 'shutdown_interrupt', runId, lastPhase };
+  }
 
   if (result.exitCode === 0) {
     updateRunEnd(db, runId, {
@@ -488,15 +500,20 @@ async function main() {
           onPhaseEnd: ({ phase, elapsedMs }) => notify(formatPhaseEnd({ runId: ctx.runId, phase, elapsedMs })),
         }),
         notify,
+        // Lets tickOnce detect "spawn killed because we're shutting down" and
+        // preserve queue+run+checkpoint state for the next boot's resume path.
+        isShuttingDown: () => state.shuttingDown,
       });
     } catch (e) {
       console.error(`orchestrator tick error: ${e.message}`);
     }
 
-    // If shutdown landed during this tick and the run wasn't a success, undo
-    // the mark-failed bookkeeping and put the row back to 'queued' so the next
-    // boot retries it instead of dropping it.
-    if (state.shuttingDown
+    // Shutdown-during-tick handling:
+    // - shutdown_interrupt → tickOnce already preserved state; resume engages next boot.
+    // - any other non-success action with a live run → re-queue (URL preserved, work redone).
+    if (state.shuttingDown && tickResult && tickResult.action === 'shutdown_interrupt') {
+      // tickOnce already notified the user; nothing to do here.
+    } else if (state.shuttingDown
         && liveRun.queueId
         && tickResult
         && tickResult.action !== 'completed_ok'
