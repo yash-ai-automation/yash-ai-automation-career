@@ -94,13 +94,51 @@ mv ops/work-queue.db ops/work-queue.db.bak.$(date +%s)
   ```
 
 ## 11. Logs
-- Daemon stdout/stderr → journald (`journalctl --user -u <unit>`).
+- Daemon stdout/stderr → journald (`journalctl --user -u <unit>`). Lines are **structured pino JSON**: `{level, time, pid, service, git_sha, event, ...fields, msg}`.
 - Per-URL Claude transcript → `ops/runs/<run_id>/claude.log` (keep forever).
 - Per-URL phase timings JSONL → `data/yash-resume-runs.log` (existing, append-only, keep forever).
 - Per-run state events → `ops/runs/<run_id>/events.jsonl` (keep forever).
 - Tectonic stderr (resume) → `resume-logs/yash/<slug>...log` (existing, keep forever).
 - Tectonic stderr (cover letter) → `cover-letter-logs/yash/<slug>...log` (existing, keep forever).
 - (Future) `/var/log/yash-pipeline/*.log` mirror via `systemd-cat` or tee — wired by `tools/bootstrap-vps.sh` + `/etc/logrotate.d/yash-pipeline`.
+
+### 11.1. Querying structured logs
+Each line is one JSON object. `event` is the stable machine-readable key; `msg` is the human description. Useful one-liners:
+
+```bash
+# All errors in the last hour
+journalctl --user -u pipeline-orchestrator --since "1 hour ago" -o cat | jq -c 'select(.level=="error")'
+
+# Every failed run, with phase + error
+journalctl --user -u pipeline-orchestrator -o cat | jq -c 'select(.event=="run_failed") | {run_id,failed_phase,error,time}'
+
+# PDF upload failures (telegram side)
+journalctl --user -u pipeline-orchestrator -o cat | jq -c 'select(.event=="pdf_upload_failed") | {run_id,kind,err}'
+
+# All bot_online events (boot history)
+journalctl --user -u pipeline-orchestrator -o cat | jq -c 'select(.event=="bot_online")'
+```
+
+**PII redaction (built-in):** `chatId`, `chat_id`, `token`, `bot_token`, `TELEGRAM_BOT_TOKEN`, `LOGTAIL_TOKEN` are auto-replaced with `[REDACTED]` (top-level and one-level-nested). Allowlist user IDs and chat IDs are never written raw.
+
+### 11.2. Env knobs (`/etc/yash-pipeline/agent.env`)
+
+| Env | Default | Effect |
+|---|---|---|
+| `LOG_LEVEL` | `info` | Standard pino levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`. Set to `debug` to see `tick_idle` + `notify_noop`. |
+| `GIT_SHA` | (set by systemd ExecStartPre) | Stamped on every log line for fast version triage. |
+| `LOG_TRANSPORT` | `none` | `none` = stdout only (journald captures). `betterstack` = also ship to BetterStack/Logtail. |
+| `LOGTAIL_TOKEN` | — | Required iff `LOG_TRANSPORT=betterstack`. Daemon refuses to start without it. |
+
+### 11.3. Wiring BetterStack (optional, opt-in)
+1. Create a BetterStack source → copy the source token.
+2. Add to `/etc/yash-pipeline/agent.env`:
+   ```
+   LOG_TRANSPORT=betterstack
+   LOGTAIL_TOKEN=<source-token>
+   ```
+3. Verify the transport package is installed locally: `npm ls @logtail/pino` (it ships as an `optionalDependency`; reinstall with `npm install` if pruned).
+4. `systemctl --user restart pipeline-orchestrator telegram-listener` — log shipping starts on next process boot. Journald continues to receive everything regardless.
 
 ## 12. On-call playbook
 | Page | Action |

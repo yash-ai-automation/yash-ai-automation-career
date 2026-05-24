@@ -22,8 +22,11 @@ import { checkCap } from './cap.mjs';
 import { analyzeRebootState, computeNextPhase, PHASE_ORDER } from './reboot-resume.mjs';
 import { formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd, formatCancelled } from './notifier.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
+import { createLogger } from './logger.mjs';
 // NOTE: telegram-client.mjs is NOT statically imported here — it doesn't exist until Task 3.1.
 // All calls use lazy dynamic import() with try/catch fallback inside main() and tickOnce().
+
+const defaultLogger = createLogger({ service: 'pipeline-orchestrator' });
 
 const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
@@ -59,23 +62,29 @@ export function formatInputsSummary(inputs) {
     .join('\n');
 }
 
-export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false, notifyChatId = 0 }) {
+export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false, notifyChatId = 0, logger = defaultLogger }) {
   const cap = checkCap(db, capLimits);
   const next = selectNextQueued(db);
-  if (!next && !cap.capped) return { action: 'idle' };
+  if (!next && !cap.capped) { logger.debug({ event: 'tick_idle' }, 'no work'); return { action: 'idle' }; }
   if (next && cap.capped) {
+    logger.info({ event: 'tick_capped', cap_window: cap.window, cap_count: cap.count }, 'cap reached');
     notify(formatCapReached(cap));
     return { action: 'capped' };
   }
 
   // Race-safe mark-running (UNIQUE index protects us)
   try { markQueueRunning(db, next.id); }
-  catch (e) { return { action: 'race_lost', error: e.message }; }
+  catch (e) {
+    logger.warn({ event: 'race_lost', queue_id: next.id, err: e }, 'lost race for queue row');
+    return { action: 'race_lost', error: e.message };
+  }
 
   const startedAt = new Date().toISOString();
   const runId = insertRun(db, { queueId: next.id, url: next.url, startedAt });
   updateRunStart(db, runId, { gitSha, claudeModel });
 
+  const runLog = logger.child({ queue_id: next.id, run_id: runId, url: next.url });
+  runLog.info({ event: 'spawn_start', git_sha: gitSha, claude_model: claudeModel }, 'spawning claude -p');
   notify(formatStart({ runId, hostname: hostnameOf(next.url) }));
 
   let result;
@@ -85,6 +94,7 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
       projectRoot, claudeModel,
     });
   } catch (e) {
+    runLog.error({ event: 'spawn_threw', err: e }, 'spawn() threw');
     result = { exitCode: -1, error: `spawn failed: ${e.message}`, failedPhase: 'spawn' };
   }
 
@@ -98,6 +108,7 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
   if (isShuttingDown() && result.exitCode !== 0 && !isCancelRequested(db, next.id)) {
     const cp = selectCheckpoint(db, runId);
     const lastPhase = cp?.last_phase || '(pre-checkpoint)';
+    runLog.info({ event: 'shutdown_interrupt', last_phase: lastPhase }, 'paused for shutdown; will resume next boot');
     notify(`⏸️ Run #${runId} paused at \`${lastPhase}\` due to shutdown; will resume on next boot.`);
     return { action: 'shutdown_interrupt', runId, lastPhase };
   }
@@ -111,6 +122,13 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     });
     markQueueDone(db, next.id);
     deleteCheckpoint(db, runId);
+    runLog.info({
+      event: 'run_completed_ok',
+      score: result.score ?? null,
+      duration_ms: result.durationMs ?? null,
+      company: result.company || null,
+      role: result.role || null,
+    }, 'run completed ok');
     notify(formatSuccess({
       runId, company: result.company || hostnameOf(next.url), role: result.role || '(role unknown)',
       score: result.score ?? 0, totalMs: result.durationMs,
@@ -122,13 +140,19 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
         await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${runId}` });
-      } catch (e) { notify(`⚠️ resume upload failed: ${e.message}`); }
+      } catch (e) {
+        runLog.warn({ event: 'pdf_upload_failed', kind: 'resume', err: e }, 'resume PDF upload failed');
+        notify(`⚠️ resume upload failed: ${e.message}`);
+      }
     }
     if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
         await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${runId}` });
-      } catch (e) { notify(`⚠️ cover-letter upload failed: ${e.message}`); }
+      } catch (e) {
+        runLog.warn({ event: 'pdf_upload_failed', kind: 'cover_letter', err: e }, 'cover-letter PDF upload failed');
+        notify(`⚠️ cover-letter upload failed: ${e.message}`);
+      }
     }
     return { action: 'completed_ok', runId };
   }
@@ -139,6 +163,7 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     updateRunEnd(db, runId, { endedAt, status: 'cancelled', error: 'user-cancelled' });
     markQueueCancelled(db, next.id);
     deleteCheckpoint(db, runId);
+    runLog.info({ event: 'run_cancelled' }, 'run cancelled by user');
     notify(formatCancelled({ runId }));
     return { action: 'completed_cancelled', runId };
   }
@@ -150,6 +175,12 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
   });
   markQueueFailed(db, next.id);
   deleteCheckpoint(db, runId);
+  runLog.error({
+    event: 'run_failed',
+    failed_phase: result.failedPhase || 'unknown',
+    exit_code: result.exitCode,
+    error: result.error || '',
+  }, 'run failed');
   notify(formatFailure({
     runId, hostname: hostnameOf(next.url),
     phase: result.failedPhase || 'unknown', error: result.error || '',
@@ -202,7 +233,8 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   // Surface the child to the orchestrator so the main loop's SIGTERM handler can
   // signal it directly during shutdown (faster than the 2s cancel poll).
   if (typeof onSpawn === 'function') {
-    try { onSpawn(child); } catch (e) { console.error(`onSpawn hook error: ${e.message}`); }
+    try { onSpawn(child); }
+    catch (e) { defaultLogger.error({ event: 'on_spawn_hook_failed', run_id: runId, err: e }, 'onSpawn hook threw'); }
   }
 
   // checkpoint poll: every 2s, read checkpoints.last_phase; if changed, fire onPhaseEnd
@@ -279,17 +311,22 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
 // cancelled → markQueueCancelled. Checkpoint is deleted in all terminal cases.
 //
 // `spawn` is injected (defaults to realSpawn) so tests can substitute a fake.
-export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, notify, recovery, spawn = realSpawn, onSpawn = () => {}, notifyChatId = 0 }) {
+export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, notify, recovery, spawn = realSpawn, onSpawn = () => {}, notifyChatId = 0, logger = defaultLogger }) {
+  const resumeLog = logger.child({
+    run_id: recovery.runId, queue_id: recovery.queueId, url: recovery.url,
+    last_phase: recovery.lastPhase, next_phase: recovery.nextPhase,
+  });
   let inputs = {};
   if (recovery.inputsPath && existsSync(recovery.inputsPath)) {
     try {
       inputs = JSON.parse(readFileSync(recovery.inputsPath, 'utf-8'));
     } catch (e) {
-      console.error(`[reboot-resume] failed to parse checkpoint inputs at ${recovery.inputsPath}: ${e.message}`);
+      resumeLog.error({ event: 'resume_inputs_parse_failed', inputs_path: recovery.inputsPath, err: e }, 'inputs JSON unparseable');
     }
   }
   const inputsSummary = formatInputsSummary(inputs);
 
+  resumeLog.info({ event: 'resume_start' }, 'resuming from checkpoint');
   notify(formatStart({ runId: recovery.runId, hostname: hostnameOf(recovery.url) }));
   notify(`♻️ Resuming run #${recovery.runId} from \`${recovery.lastPhase}\` → \`${recovery.nextPhase}\``);
 
@@ -326,6 +363,11 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
     });
     markQueueDone(db, recovery.queueId);
     deleteCheckpoint(db, recovery.runId);
+    resumeLog.info({
+      event: 'resume_completed_ok',
+      score: result.score ?? null,
+      duration_ms: result.durationMs ?? null,
+    }, 'resumed run completed ok');
     notify(formatSuccess({
       runId: recovery.runId, company: result.company || hostnameOf(recovery.url), role: result.role || '(role unknown)',
       score: result.score ?? 0, totalMs: result.durationMs,
@@ -334,13 +376,19 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
         await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${recovery.runId} (resumed)` });
-      } catch (e) { notify(`⚠️ resume upload failed: ${e.message}`); }
+      } catch (e) {
+        resumeLog.warn({ event: 'pdf_upload_failed', kind: 'resume', err: e }, 'resume PDF upload failed');
+        notify(`⚠️ resume upload failed: ${e.message}`);
+      }
     }
     if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
         await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${recovery.runId} (resumed)` });
-      } catch (e) { notify(`⚠️ cover-letter upload failed: ${e.message}`); }
+      } catch (e) {
+        resumeLog.warn({ event: 'pdf_upload_failed', kind: 'cover_letter', err: e }, 'cover-letter PDF upload failed');
+        notify(`⚠️ cover-letter upload failed: ${e.message}`);
+      }
     }
     return { action: 'completed_ok', runId: recovery.runId };
   }
@@ -349,6 +397,7 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
     updateRunEnd(db, recovery.runId, { endedAt, status: 'cancelled', error: 'user-cancelled' });
     markQueueCancelled(db, recovery.queueId);
     deleteCheckpoint(db, recovery.runId);
+    resumeLog.info({ event: 'resume_cancelled' }, 'resumed run cancelled by user');
     notify(formatCancelled({ runId: recovery.runId }));
     return { action: 'completed_cancelled', runId: recovery.runId };
   }
@@ -360,6 +409,12 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
   });
   markQueueFailed(db, recovery.queueId);
   deleteCheckpoint(db, recovery.runId);
+  resumeLog.error({
+    event: 'resume_failed',
+    failed_phase: result.failedPhase || recovery.nextPhase || 'unknown',
+    exit_code: result.exitCode,
+    error: result.error || '',
+  }, 'resumed run failed');
   notify(formatFailure({
     runId: recovery.runId, hostname: hostnameOf(recovery.url),
     phase: result.failedPhase || recovery.nextPhase || 'unknown', error: result.error || '',
@@ -378,7 +433,7 @@ async function main() {
 
   const integrity = integrityCheck(db);
   if (integrity !== 'ok') {
-    process.stderr.write(`PRAGMA integrity_check = ${integrity} → bailing\n`);
+    defaultLogger.fatal({ event: 'integrity_check_failed', integrity }, 'PRAGMA integrity_check failed; bailing');
     process.exit(2);
   }
 
@@ -390,7 +445,7 @@ async function main() {
     markQueueFailed(db, recovery.queueId);
     updateRunEnd(db, recovery.runId, { status: 'cancelled', error: 'reboot-no-checkpoint' });
   } else if (recovery.state === 'corrupt') {
-    process.stderr.write(`reboot: corrupt — > 1 running rows; bailing\n`);
+    defaultLogger.fatal({ event: 'reboot_corrupt' }, 'reboot: > 1 running rows; bailing');
     process.exit(3);
   }
 
@@ -400,11 +455,13 @@ async function main() {
 
   // Lazy-import sendMessage so that this module loads cleanly before telegram-client exists.
   const notify = async (msg) => {
-    if (!notifyChatId) { console.log(`[notify-noop] ${msg}`); return; }
+    if (!notifyChatId) { defaultLogger.debug({ event: 'notify_noop', msg }, 'no chat id; notify skipped'); return; }
     try {
       const { sendMessage } = await import('./telegram-client.mjs');
       await sendMessage(msg, { chatId: notifyChatId });
-    } catch (e) { console.error(`notify error: ${e.message}`); }
+    } catch (e) {
+      defaultLogger.warn({ event: 'notify_failed', err: e }, 'telegram sendMessage failed');
+    }
   };
 
   // ── systemd Type=notify lifecycle ────────────────────────────────────────
@@ -416,6 +473,7 @@ async function main() {
   // ── boot notification (one-shot) ────────────────────────────────────────
   const queuedAtBoot = selectQueueLen(db, 'queued');
   const shortSha = gitSha.slice(0, 7);
+  defaultLogger.info({ event: 'bot_online', queued: queuedAtBoot, git_sha: gitSha, claude_model: claudeModel }, 'orchestrator online');
   await notify(`✅ Bot online · queue: ${queuedAtBoot} waiting · git ${shortSha}`);
 
   // ── graceful-shutdown state ──────────────────────────────────────────────
@@ -427,7 +485,7 @@ async function main() {
   const requestShutdown = (sig) => {
     if (state.shuttingDown) return;
     state.shuttingDown = true;
-    console.log(`[pipeline-orchestrator] Received ${sig}; SIGTERM child + re-queueing.`);
+    defaultLogger.info({ event: 'shutdown_requested', signal: sig, live_run_id: liveRun.runId }, 'shutdown requested');
     // Fire-and-forget the user-facing notification — don't block the handler.
     if (liveRun.runId) {
       notify(`🔄 Bot restarting; run #${liveRun.runId} will be re-queued and retried on next boot.`).catch(() => {});
@@ -459,7 +517,7 @@ async function main() {
         notifyChatId,
       });
     } catch (e) {
-      console.error(`[reboot-resume] resume orchestration error: ${e.message}`);
+      defaultLogger.error({ event: 'resume_orchestration_error', run_id: recovery.runId, err: e }, 'resume orchestration threw');
       // Fallback so the next boot doesn't loop on the same row.
       try {
         markQueueFailed(db, recovery.queueId);
@@ -467,7 +525,7 @@ async function main() {
         deleteCheckpoint(db, recovery.runId);
         await notify(`❌ Resume of run #${recovery.runId} failed in orchestrator: ${e.message}`);
       } catch (e2) {
-        console.error(`[reboot-resume] fallback bookkeeping failed: ${e2.message}`);
+        defaultLogger.error({ event: 'resume_fallback_bookkeeping_failed', run_id: recovery.runId, err: e2 }, 'fallback bookkeeping failed');
       }
     }
     // If shutdown landed during resume and the run wasn't a clean success,
@@ -480,7 +538,7 @@ async function main() {
         repairOrphanedRunning(db, recovery.queueId);
         await notify(`↩️ Run #${recovery.runId} re-queued; will retry on next boot.`);
       } catch (e) {
-        console.error(`[reboot-resume] re-queue on shutdown failed: ${e.message}`);
+        defaultLogger.error({ event: 'resume_requeue_failed', run_id: recovery.runId, err: e }, 're-queue on shutdown failed');
       }
     }
     liveRun.queueId = null; liveRun.runId = null; liveRun.child = null;
@@ -508,7 +566,7 @@ async function main() {
         notifyChatId,
       });
     } catch (e) {
-      console.error(`orchestrator tick error: ${e.message}`);
+      defaultLogger.error({ event: 'tick_error', err: e }, 'tickOnce threw');
     }
 
     // Shutdown-during-tick handling:
@@ -526,7 +584,7 @@ async function main() {
         repairOrphanedRunning(db, liveRun.queueId);
         await notify(`↩️ Run #${liveRun.runId} requeued; will retry from the start on next boot.`);
       } catch (e) {
-        console.error(`re-queue on shutdown failed: ${e.message}`);
+        defaultLogger.error({ event: 'requeue_failed', queue_id: liveRun.queueId, run_id: liveRun.runId, err: e }, 're-queue on shutdown failed');
       }
     }
 
@@ -538,11 +596,11 @@ async function main() {
   // ── drain + exit ─────────────────────────────────────────────────────────
   await notifyStopping('orchestrator shutdown');
   stopWatchdog();
-  try { closeDb(db); } catch (e) { console.error(`closeDb error: ${e.message}`); }
-  console.log('[pipeline-orchestrator] Exited cleanly.');
+  try { closeDb(db); } catch (e) { defaultLogger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw'); }
+  defaultLogger.info({ event: 'daemon_exit', exit_code: state.exitCode }, 'orchestrator exited cleanly');
   process.exit(state.exitCode);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((e) => { console.error(`fatal: ${e.message}`); process.exit(4); });
+  main().catch((e) => { defaultLogger.fatal({ event: 'daemon_fatal', err: e }, 'orchestrator fatal'); process.exit(4); });
 }
