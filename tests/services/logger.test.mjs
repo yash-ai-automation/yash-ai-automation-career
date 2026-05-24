@@ -44,12 +44,18 @@ test('includes git_sha from process.env.GIT_SHA', () => {
   assert.equal(sink.lines()[0].git_sha, 'abc123def');
 });
 
-test('git_sha falls back to "unknown" when GIT_SHA unset', () => {
+test('git_sha falls back to detected SHA or "unknown" when GIT_SHA unset', () => {
+  // Auto-detection runs `git rev-parse HEAD` inside the worktree, so we get a
+  // 40-char hex sha; outside any git repo it returns "unknown". Accept either.
   delete process.env.GIT_SHA;
   const sink = makeSink();
   const log = createLogger({ service: 'svc' }, sink.stream);
   log.info('msg');
-  assert.equal(sink.lines()[0].git_sha, 'unknown');
+  const { git_sha } = sink.lines()[0];
+  assert.ok(
+    /^[0-9a-f]{40}$/.test(git_sha) || git_sha === 'unknown',
+    `expected 40-hex sha or "unknown", got ${git_sha}`
+  );
 });
 
 test('child() binds additional context to every log line', () => {

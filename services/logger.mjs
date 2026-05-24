@@ -5,9 +5,11 @@
 //
 // Base fields on every line: { service, pid, git_sha, hostname, level, time, msg }
 // PII redaction: chatId/chat_id and bot tokens become "[REDACTED]" automatically.
-// Env: LOG_LEVEL (default "info"), GIT_SHA (default "unknown").
+// Env: LOG_LEVEL (default "info"). GIT_SHA preferred; falls back to `git rev-parse HEAD`
+// (one-shot at import), then "unknown" if not in a git repo.
 
 import { pino } from 'pino';
+import { execSync } from 'node:child_process';
 
 const REDACT_PATHS = [
   'chatId', 'chat_id',
@@ -17,6 +19,20 @@ const REDACT_PATHS = [
 ];
 
 const SUPPORTED_TRANSPORTS = ['none', 'betterstack'];
+
+function defaultRunGitSha() {
+  return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+}
+
+export function detectGitSha(env = process.env, runCmd = defaultRunGitSha) {
+  if (env.GIT_SHA) return env.GIT_SHA;
+  try {
+    const out = runCmd();
+    return out && out.length > 0 ? out : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 export function buildTransportOpts(env = process.env) {
   const t = (env.LOG_TRANSPORT || '').toLowerCase();
@@ -39,7 +55,7 @@ export function createLogger({ service } = {}, destination) {
   }
   const opts = {
     level: process.env.LOG_LEVEL || 'info',
-    base: { pid: process.pid, service, git_sha: process.env.GIT_SHA || 'unknown' },
+    base: { pid: process.pid, service, git_sha: detectGitSha() },
     timestamp: pino.stdTimeFunctions.epochTime,
     redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
     formatters: { level(label) { return { level: label }; } },
