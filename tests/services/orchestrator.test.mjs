@@ -101,3 +101,85 @@ test('tickOnce: when cap reached, leaves queue alone and notifies once', async (
     assert.equal(newcomer.status, 'queued', 'capped URL stays queued for retry');
   } finally { cleanup(); }
 });
+
+test('tickOnce: shutdown_interrupt — preserves queue/run/checkpoint when spawn killed during shutdown', async () => {
+  const { db, dir, cleanup } = fresh();
+  try {
+    const qid = insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const notifications = [];
+    const r = await tickOnce({
+      db, projectRoot: dir,
+      capLimits: { dailyMax: 20, weeklyMax: 100 },
+      gitSha: 'cafebabe',
+      claudeModel: 'claude-opus-4-7',
+      // Simulate: orchestrator received SIGTERM while claude was running.
+      // spawn returns non-zero exit AND isShuttingDown returns true.
+      spawn: async ({ runId }) => {
+        // Pretend the in-flight run reached resume_gen_end before being SIGTERMed.
+        const { upsertCheckpoint } = await import('../../services/queue.mjs');
+        upsertCheckpoint(db, { runId, lastPhase: 'resume_gen_end', inputsPath: '/tmp/h1.json' });
+        return { exitCode: 143, error: 'claude -p exit 143' };
+      },
+      notify: (msg) => notifications.push(msg),
+      isShuttingDown: () => true,
+    });
+    assert.equal(r.action, 'shutdown_interrupt');
+    assert.equal(r.lastPhase, 'resume_gen_end');
+    // Queue must stay 'running' (NOT 'failed' and NOT 'queued') so next-boot analyzeRebootState sees state='resume'.
+    const queueRow = db.prepare('SELECT status FROM queue WHERE id=?').get(qid);
+    assert.equal(queueRow.status, 'running', 'queue must stay running so resume engages on next boot');
+    // Run must stay 'running' (NOT 'fail') so it can be resumed.
+    const runRow = db.prepare('SELECT status, ended_at FROM runs WHERE queue_id=?').get(qid);
+    assert.equal(runRow.status, 'running');
+    assert.equal(runRow.ended_at, null);
+    // Checkpoint must NOT be deleted.
+    const cp = db.prepare('SELECT last_phase FROM checkpoints WHERE run_id=?').get(r.runId);
+    assert.equal(cp.last_phase, 'resume_gen_end');
+    // User notified about the pause.
+    assert.ok(notifications.some(n => /⏸️.*paused.*resume_gen_end/.test(n)));
+  } finally { cleanup(); }
+});
+
+test('tickOnce: shutdown_interrupt does NOT fire when user cancelled the run (cancel path still works)', async () => {
+  const { db, dir, cleanup } = fresh();
+  try {
+    const qid = insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    // User requested cancel before the SIGTERM hit.
+    db.prepare('UPDATE queue SET cancel_requested=1 WHERE id=?').run(qid);
+    const notifications = [];
+    const r = await tickOnce({
+      db, projectRoot: dir,
+      capLimits: { dailyMax: 20, weeklyMax: 100 },
+      gitSha: 'cafebabe',
+      claudeModel: 'claude-opus-4-7',
+      spawn: async () => ({ exitCode: 143, error: 'sigterm via cancel' }),
+      notify: (msg) => notifications.push(msg),
+      isShuttingDown: () => true,
+    });
+    // Cancel takes precedence over shutdown_interrupt because the user's intent wins.
+    assert.equal(r.action, 'completed_cancelled');
+    const queueRow = db.prepare('SELECT status FROM queue WHERE id=?').get(qid);
+    assert.equal(queueRow.status, 'cancelled');
+  } finally { cleanup(); }
+});
+
+test('tickOnce: shutdown_interrupt does NOT fire when spawn exits cleanly (success path still works)', async () => {
+  const { db, dir, cleanup } = fresh();
+  try {
+    insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const notifications = [];
+    const r = await tickOnce({
+      db, projectRoot: dir,
+      capLimits: { dailyMax: 20, weeklyMax: 100 },
+      gitSha: 'cafebabe',
+      claudeModel: 'claude-opus-4-7',
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90 }),
+      notify: (msg) => notifications.push(msg),
+      // Even though shutdown is in progress, success completes normally.
+      isShuttingDown: () => true,
+    });
+    assert.equal(r.action, 'completed_ok');
+    const queueRow = db.prepare('SELECT status FROM queue ORDER BY id DESC LIMIT 1').get();
+    assert.equal(queueRow.status, 'done');
+  } finally { cleanup(); }
+});
