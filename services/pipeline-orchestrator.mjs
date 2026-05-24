@@ -34,6 +34,31 @@ function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return '(unknown)'; }
 }
 
+// ── preamble helpers ────────────────────────────────────────────────────────
+// Exported so tests can verify substitution without spawning claude.
+export function renderPreamble({ projectRoot, mode = 'fresh', vars }) {
+  const file = mode === 'resume' ? 'resume-run.md' : 'fresh-run.md';
+  const path = resolve(projectRoot, 'ops/preambles', file);
+  let body = readFileSync(path, 'utf-8');
+  // Sort by key length descending so that $URL_HASH is substituted before $URL,
+  // $LAST_PHASE before $LAST, etc. The replacement is a function so $-tokens
+  // ($&, $$, …) in the value aren't interpreted as special patterns.
+  const entries = Object.entries(vars || {}).sort((a, b) => b[0].length - a[0].length);
+  for (const [k, v] of entries) {
+    body = body.replaceAll('$' + k, () => String(v));
+  }
+  return body;
+}
+
+export function formatInputsSummary(inputs) {
+  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs) || Object.keys(inputs).length === 0) {
+    return '(no prior artifacts recorded)';
+  }
+  return Object.entries(inputs)
+    .map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+    .join('\n');
+}
+
 export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify }) {
   const cap = checkCap(db, capLimits);
   const next = selectNextQueued(db);
@@ -122,13 +147,16 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
 // --- real spawn(): one `claude -p` per URL, with checkpoint-polling for phase pings ---
 //
 // This is the production glue. The signature matches what tickOnce passes in.
-export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel }, { onPhaseEnd, onSpawn, db }) {
-  const preamblePath = resolve(projectRoot, 'ops/preambles/fresh-run.md');
-  const preamble = readFileSync(preamblePath, 'utf-8')
-    .replaceAll('$URL', url)
-    .replaceAll('$RUN_ID', String(runId))
-    .replaceAll('$URL_HASH', urlHash)
-    .replaceAll('$PROJECT_ROOT', projectRoot);
+// `mode` is 'fresh' (default) or 'resume'; `resumeContext` carries the extra vars
+// (LAST_PHASE, NEXT_PHASE, INPUTS_SUMMARY) substituted into the resume preamble.
+export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel, mode = 'fresh', resumeContext = null }, { onPhaseEnd, onSpawn, db }) {
+  const preamble = renderPreamble({
+    projectRoot, mode,
+    vars: {
+      URL: url, RUN_ID: runId, URL_HASH: urlHash, PROJECT_ROOT: projectRoot,
+      ...(resumeContext || {}),
+    },
+  });
 
   const runDir = join(projectRoot, 'ops/runs', String(runId));
   mkdirSync(runDir, { recursive: true });
@@ -228,6 +256,104 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   };
 }
 
+// --- resume an in-flight run after a reboot ---
+//
+// Called once at orchestrator startup when analyzeRebootState() returns state='resume'.
+// The queue row is already 'running' and the runs row is already 'running' — we
+// spawn `claude -p` with the resume preamble (carrying LAST_PHASE/NEXT_PHASE/
+// INPUTS_SUMMARY) and then handle the result exactly like a normal tick would:
+// success → markQueueDone+updateRunEnd(ok)+sendDocuments; failure → markQueueFailed;
+// cancelled → markQueueCancelled. Checkpoint is deleted in all terminal cases.
+//
+// `spawn` is injected (defaults to realSpawn) so tests can substitute a fake.
+export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, notify, recovery, spawn = realSpawn, onSpawn = () => {} }) {
+  let inputs = {};
+  if (recovery.inputsPath && existsSync(recovery.inputsPath)) {
+    try {
+      inputs = JSON.parse(readFileSync(recovery.inputsPath, 'utf-8'));
+    } catch (e) {
+      console.error(`[reboot-resume] failed to parse checkpoint inputs at ${recovery.inputsPath}: ${e.message}`);
+    }
+  }
+  const inputsSummary = formatInputsSummary(inputs);
+
+  notify(formatStart({ runId: recovery.runId, hostname: hostnameOf(recovery.url) }));
+  notify(`♻️ Resuming run #${recovery.runId} from \`${recovery.lastPhase}\` → \`${recovery.nextPhase}\``);
+
+  let result;
+  try {
+    result = await spawn(
+      {
+        runId: recovery.runId, queueId: recovery.queueId, url: recovery.url, urlHash: recovery.urlHash,
+        projectRoot, dbPath, claudeModel,
+        mode: 'resume',
+        resumeContext: {
+          LAST_PHASE: recovery.lastPhase,
+          NEXT_PHASE: recovery.nextPhase,
+          INPUTS_SUMMARY: inputsSummary,
+        },
+      },
+      {
+        db, onSpawn,
+        onPhaseEnd: ({ phase, elapsedMs }) => notify(formatPhaseEnd({ runId: recovery.runId, phase, elapsedMs })),
+      }
+    );
+  } catch (e) {
+    result = { exitCode: -1, error: `resume spawn failed: ${e.message}`, failedPhase: 'spawn' };
+  }
+
+  const endedAt = new Date().toISOString();
+
+  if (result.exitCode === 0) {
+    updateRunEnd(db, recovery.runId, {
+      endedAt, status: 'ok', score: result.score, slug: result.slug,
+      jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
+      tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
+      phaseTimingsJson: result.phaseTimingsJson,
+    });
+    markQueueDone(db, recovery.queueId);
+    deleteCheckpoint(db, recovery.runId);
+    notify(formatSuccess({
+      runId: recovery.runId, company: result.company || hostnameOf(recovery.url), role: result.role || '(role unknown)',
+      score: result.score ?? 0, totalMs: result.durationMs,
+    }));
+    if (result.resumePdf && existsSync(result.resumePdf)) {
+      try {
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.resumePdf, { caption: `Resume #${recovery.runId} (resumed)` });
+      } catch (e) { notify(`⚠️ resume upload failed: ${e.message}`); }
+    }
+    if (result.coverLetterPdf && existsSync(result.coverLetterPdf)) {
+      try {
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.coverLetterPdf, { caption: `Cover Letter #${recovery.runId} (resumed)` });
+      } catch (e) { notify(`⚠️ cover-letter upload failed: ${e.message}`); }
+    }
+    return { action: 'completed_ok', runId: recovery.runId };
+  }
+
+  if (isCancelRequested(db, recovery.queueId)) {
+    updateRunEnd(db, recovery.runId, { endedAt, status: 'cancelled', error: 'user-cancelled' });
+    markQueueCancelled(db, recovery.queueId);
+    deleteCheckpoint(db, recovery.runId);
+    notify(formatCancelled({ runId: recovery.runId }));
+    return { action: 'completed_cancelled', runId: recovery.runId };
+  }
+
+  updateRunEnd(db, recovery.runId, {
+    endedAt, status: 'fail',
+    error: result.error || `exit ${result.exitCode}`,
+    phaseTimingsJson: result.phaseTimingsJson,
+  });
+  markQueueFailed(db, recovery.queueId);
+  deleteCheckpoint(db, recovery.runId);
+  notify(formatFailure({
+    runId: recovery.runId, hostname: hostnameOf(recovery.url),
+    phase: result.failedPhase || recovery.nextPhase || 'unknown', error: result.error || '',
+  }));
+  return { action: 'completed_fail', runId: recovery.runId };
+}
+
 // --- main entry ---
 async function main() {
   const projectRoot = process.env.PROJECT_ROOT || process.cwd();
@@ -243,18 +369,13 @@ async function main() {
     process.exit(2);
   }
 
-  // Startup recovery
+  // Startup recovery (resume is handled AFTER notify/state setup is wired below)
   const recovery = analyzeRebootState(db);
   if (recovery.state === 'repair') {
     repairOrphanedRunning(db, recovery.queueId);
   } else if (recovery.state === 'restart_from_scratch') {
     markQueueFailed(db, recovery.queueId);
     updateRunEnd(db, recovery.runId, { status: 'cancelled', error: 'reboot-no-checkpoint' });
-  } else if (recovery.state === 'resume') {
-    // For v1: log it; full resume-from-checkpoint preamble path is in OPERATIONS.md Phase-2 backlog
-    process.stderr.write(`reboot: would resume run ${recovery.runId} from ${recovery.lastPhase} → ${recovery.nextPhase}; using restart-from-scratch for v1\n`);
-    markQueueFailed(db, recovery.queueId);
-    updateRunEnd(db, recovery.runId, { status: 'cancelled', error: 'reboot-resume-not-implemented-v1' });
   } else if (recovery.state === 'corrupt') {
     process.stderr.write(`reboot: corrupt — > 1 running rows; bailing\n`);
     process.exit(3);
@@ -308,6 +429,48 @@ async function main() {
   };
   process.on('SIGTERM', () => requestShutdown('SIGTERM'));
   process.on('SIGINT', () => requestShutdown('SIGINT'));
+
+  // ── reboot-resume: finish the in-flight run from its last checkpoint ─────
+  // Happens after SIGTERM handler is wired so that a SIGTERM-during-resume
+  // re-queues cleanly (same as a SIGTERM during any normal tick).
+  if (recovery.state === 'resume' && !state.shuttingDown) {
+    liveRun.queueId = recovery.queueId;
+    liveRun.runId = recovery.runId;
+    await notify(`♻️ Reboot detected. Resuming run #${recovery.runId} from \`${recovery.lastPhase}\` → \`${recovery.nextPhase}\`.`);
+    let resumeResult = null;
+    try {
+      resumeResult = await resumeInFlightRun({
+        db, projectRoot, dbPath, claudeModel, notify, recovery,
+        spawn: (ctx, hooks) => realSpawn(ctx, hooks),
+        onSpawn: (child) => { liveRun.child = child; },
+      });
+    } catch (e) {
+      console.error(`[reboot-resume] resume orchestration error: ${e.message}`);
+      // Fallback so the next boot doesn't loop on the same row.
+      try {
+        markQueueFailed(db, recovery.queueId);
+        updateRunEnd(db, recovery.runId, { status: 'fail', error: `resume-orchestrator-error: ${e.message}` });
+        deleteCheckpoint(db, recovery.runId);
+        await notify(`❌ Resume of run #${recovery.runId} failed in orchestrator: ${e.message}`);
+      } catch (e2) {
+        console.error(`[reboot-resume] fallback bookkeeping failed: ${e2.message}`);
+      }
+    }
+    // If shutdown landed during resume and the run wasn't a clean success,
+    // undo the bookkeeping and re-queue for the next boot.
+    if (state.shuttingDown
+        && resumeResult
+        && resumeResult.action !== 'completed_ok'
+        && resumeResult.action !== 'completed_cancelled') {
+      try {
+        repairOrphanedRunning(db, recovery.queueId);
+        await notify(`↩️ Run #${recovery.runId} re-queued; will retry on next boot.`);
+      } catch (e) {
+        console.error(`[reboot-resume] re-queue on shutdown failed: ${e.message}`);
+      }
+    }
+    liveRun.queueId = null; liveRun.runId = null; liveRun.child = null;
+  }
 
   // ── poll loop ────────────────────────────────────────────────────────────
   while (!state.shuttingDown) {
