@@ -94,6 +94,14 @@ export async function sendMessage(text, { chatId, parseMode } = {}) {
  * @returns {Promise<object>} The sent message object.
  */
 export async function sendDocument(filePath, { chatId, caption } = {}) {
+  // Defensive: if a caller forgets to pass chatId, the multipart body would
+  // serialize `undefined` into the chat_id field, Telegram would look up the
+  // string "undefined", and return "Bad Request: chat not found" — exactly the
+  // bug we shipped to production on 2026-05-24. Fail loudly here instead so
+  // future regressions surface as a clear error, not as a misleading API msg.
+  if (!chatId || (typeof chatId !== 'number' && typeof chatId !== 'string')) {
+    throw new Error(`sendDocument: chatId is required (got ${typeof chatId} ${JSON.stringify(chatId)})`);
+  }
   const urlStr = `${envBase()}${envToken()}/sendDocument`;
   const url = new URL(urlStr);
   const boundary = `----TelegramBoundary${Date.now()}`;

@@ -12,11 +12,18 @@ ExecStart=/usr/bin/env node services/pipeline-orchestrator.mjs
 Restart=on-failure
 RestartSec=5
 WatchdogSec=300
-TimeoutStartSec=30
+# Bumped 30→60: after a heavy run (run #2 had 512M memory + 824M swap peak),
+# a back-to-back restart hit a DB WAL checkpoint flush before sd_notify READY=1
+# could fire within 30s, causing systemd to SIGTERM the cold orchestrator.
+# 60s gives the WAL checkpoint + sqlite init + git rev-parse breathing room.
+TimeoutStartSec=60
 TimeoutStopSec=30
 KillMode=mixed
 KillSignal=SIGTERM
-MemoryMax=512M
+# Bumped 512M→1G: live OMERS run peaked at 512.0M RSS + 823.6M swap on the
+# 512M cgroup cap. Surviving via swap is fragile (swap-disabled containers OOM-kill).
+# 1G gives clean headroom for the V2.0 prompt cat-chunking + tectonic compile.
+MemoryMax=1G
 StandardOutput=journal
 StandardError=journal
 

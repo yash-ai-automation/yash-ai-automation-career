@@ -163,6 +163,81 @@ test('tickOnce: shutdown_interrupt does NOT fire when user cancelled the run (ca
   } finally { cleanup(); }
 });
 
+test('tickOnce: skips PDF upload when notifyChatId is 0 (test default), still marks done', async () => {
+  const { db, dir, cleanup } = fresh();
+  try {
+    // Write a fake PDF on disk so existsSync() returns true.
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    mkdirSync(`${dir}/resumes/yash`, { recursive: true });
+    const pdfPath = `${dir}/resumes/yash/test.pdf`;
+    writeFileSync(pdfPath, '%PDF-1.4 fake');
+    insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const r = await tickOnce({
+      db, projectRoot: dir,
+      capLimits: { dailyMax: 20, weeklyMax: 100 },
+      gitSha: 'cafebabe',
+      claudeModel: 'claude-opus-4-7',
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, resumePdf: pdfPath }),
+      notify: () => {},
+      // Default notifyChatId=0 → upload should be skipped, no telegram-client import attempted.
+    });
+    assert.equal(r.action, 'completed_ok');
+    const queueRow = db.prepare('SELECT status FROM queue ORDER BY id DESC LIMIT 1').get();
+    assert.equal(queueRow.status, 'done', 'success path still marks queue done even with no Telegram chat');
+  } finally { cleanup(); }
+});
+
+test('tickOnce: when notifyChatId is set, sendDocument receives it (regression for 2026-05-24 prod bug)', async () => {
+  const { db, dir, cleanup } = fresh();
+  try {
+    const { writeFileSync, mkdirSync } = await import('node:fs');
+    mkdirSync(`${dir}/resumes/yash`, { recursive: true });
+    const pdfPath = `${dir}/resumes/yash/test.pdf`;
+    writeFileSync(pdfPath, '%PDF-1.4 fake');
+
+    // Stand up a mock Telegram server so we can observe the request body.
+    const http = await import('node:http');
+    const captured = [];
+    const server = await new Promise((resolve) => {
+      const s = http.createServer((req, res) => {
+        let body = '';
+        req.on('data', c => { body += c; });
+        req.on('end', () => {
+          captured.push({ url: req.url, body });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, result: { message_id: 1 } }));
+        });
+      });
+      s.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    const port = server.address().port;
+    process.env.TELEGRAM_BOT_TOKEN = 'test-tok';
+    process.env.TELEGRAM_API_BASE = `http://127.0.0.1:${port}/bot`;
+
+    insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const r = await tickOnce({
+      db, projectRoot: dir,
+      capLimits: { dailyMax: 20, weeklyMax: 100 },
+      gitSha: 'cafebabe',
+      claudeModel: 'claude-opus-4-7',
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, resumePdf: pdfPath }),
+      notify: () => {},
+      notifyChatId: 999000111,  // fake numeric chatId for test (never use a real one — secret scanner flags it as PII).
+    });
+    server.close();
+
+    assert.equal(r.action, 'completed_ok');
+    // At least one request to /sendDocument with the correct chat_id in the multipart body.
+    const docReq = captured.find(c => c.url.endsWith('/sendDocument'));
+    assert.ok(docReq, 'expected at least one POST to /sendDocument');
+    assert.ok(
+      docReq.body.includes('name="chat_id"') && docReq.body.includes('999000111'),
+      'multipart body must include chat_id form-field with the real numeric chatId, not "undefined"',
+    );
+    assert.ok(!docReq.body.includes('undefined'), 'multipart body must not contain the string "undefined"');
+  } finally { cleanup(); }
+});
+
 test('tickOnce: shutdown_interrupt does NOT fire when spawn exits cleanly (success path still works)', async () => {
   const { db, dir, cleanup } = fresh();
   try {
