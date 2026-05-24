@@ -91,3 +91,39 @@ test('sendMessage posts to /sendMessage with chat_id + text', async () => {
   assert.equal(result.message_id, 99, 'returned message_id must match mock');
   assert.equal(result.text, 'Hello bot!', 'returned text must match mock');
 });
+
+// ── sendDocument chatId validation (regression for 2026-05-24 prod bug) ─────
+
+test('sendDocument throws a clear error when chatId is missing', async () => {
+  process.env.TELEGRAM_BOT_TOKEN = 'test-token';
+  process.env.TELEGRAM_API_BASE = 'http://127.0.0.1:1/bot';  // unreachable; we should never get there
+  const { sendDocument } = await import(`../../services/telegram-client.mjs?cb=${Date.now()}`);
+
+  await assert.rejects(
+    () => sendDocument('/etc/hostname', { caption: 'no chatId here' }),
+    /sendDocument: chatId is required \(got undefined undefined\)/,
+    'must throw before any network call when chatId is omitted',
+  );
+});
+
+test('sendDocument throws when chatId is null', async () => {
+  process.env.TELEGRAM_BOT_TOKEN = 'test-token';
+  process.env.TELEGRAM_API_BASE = 'http://127.0.0.1:1/bot';
+  const { sendDocument } = await import(`../../services/telegram-client.mjs?cb=${Date.now()}`);
+
+  await assert.rejects(
+    () => sendDocument('/etc/hostname', { chatId: null, caption: 'x' }),
+    /sendDocument: chatId is required/,
+  );
+});
+
+test('sendDocument throws when chatId is an object (would serialize to [object Object])', async () => {
+  process.env.TELEGRAM_BOT_TOKEN = 'test-token';
+  process.env.TELEGRAM_API_BASE = 'http://127.0.0.1:1/bot';
+  const { sendDocument } = await import(`../../services/telegram-client.mjs?cb=${Date.now()}`);
+
+  await assert.rejects(
+    () => sendDocument('/etc/hostname', { chatId: { id: 42 }, caption: 'x' }),
+    /sendDocument: chatId is required/,
+  );
+});

@@ -59,7 +59,7 @@ export function formatInputsSummary(inputs) {
     .join('\n');
 }
 
-export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false }) {
+export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false, notifyChatId = 0 }) {
   const cap = checkCap(db, capLimits);
   const next = selectNextQueued(db);
   if (!next && !cap.capped) return { action: 'idle' };
@@ -115,18 +115,19 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
       runId, company: result.company || hostnameOf(next.url), role: result.role || '(role unknown)',
       score: result.score ?? 0, totalMs: result.durationMs,
     }));
-    // Lazy-import sendDocument only when we have a PDF to send. If telegram-client doesn't
-    // exist yet (pre-Task 3.1), the catch swallows the import error gracefully.
-    if (result.resumePdf && existsSync(result.resumePdf)) {
+    // Lazy-import sendDocument only when we have a PDF to send. If telegram-client
+    // doesn't exist or chatId is unset, skip the upload (still mark run done — the
+    // PDF is on disk; the Telegram delivery is best-effort).
+    if (result.resumePdf && existsSync(result.resumePdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
-        await sendDocument(result.resumePdf, { caption: `Resume #${runId}` });
+        await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${runId}` });
       } catch (e) { notify(`⚠️ resume upload failed: ${e.message}`); }
     }
-    if (result.coverLetterPdf && existsSync(result.coverLetterPdf)) {
+    if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
-        await sendDocument(result.coverLetterPdf, { caption: `Cover Letter #${runId}` });
+        await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${runId}` });
       } catch (e) { notify(`⚠️ cover-letter upload failed: ${e.message}`); }
     }
     return { action: 'completed_ok', runId };
@@ -278,7 +279,7 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
 // cancelled → markQueueCancelled. Checkpoint is deleted in all terminal cases.
 //
 // `spawn` is injected (defaults to realSpawn) so tests can substitute a fake.
-export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, notify, recovery, spawn = realSpawn, onSpawn = () => {} }) {
+export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, notify, recovery, spawn = realSpawn, onSpawn = () => {}, notifyChatId = 0 }) {
   let inputs = {};
   if (recovery.inputsPath && existsSync(recovery.inputsPath)) {
     try {
@@ -329,16 +330,16 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
       runId: recovery.runId, company: result.company || hostnameOf(recovery.url), role: result.role || '(role unknown)',
       score: result.score ?? 0, totalMs: result.durationMs,
     }));
-    if (result.resumePdf && existsSync(result.resumePdf)) {
+    if (result.resumePdf && existsSync(result.resumePdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
-        await sendDocument(result.resumePdf, { caption: `Resume #${recovery.runId} (resumed)` });
+        await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${recovery.runId} (resumed)` });
       } catch (e) { notify(`⚠️ resume upload failed: ${e.message}`); }
     }
-    if (result.coverLetterPdf && existsSync(result.coverLetterPdf)) {
+    if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
         const { sendDocument } = await import('./telegram-client.mjs');
-        await sendDocument(result.coverLetterPdf, { caption: `Cover Letter #${recovery.runId} (resumed)` });
+        await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${recovery.runId} (resumed)` });
       } catch (e) { notify(`⚠️ cover-letter upload failed: ${e.message}`); }
     }
     return { action: 'completed_ok', runId: recovery.runId };
@@ -455,6 +456,7 @@ async function main() {
         db, projectRoot, dbPath, claudeModel, notify, recovery,
         spawn: (ctx, hooks) => realSpawn(ctx, hooks),
         onSpawn: (child) => { liveRun.child = child; },
+        notifyChatId,
       });
     } catch (e) {
       console.error(`[reboot-resume] resume orchestration error: ${e.message}`);
@@ -503,6 +505,7 @@ async function main() {
         // Lets tickOnce detect "spawn killed because we're shutting down" and
         // preserve queue+run+checkpoint state for the next boot's resume path.
         isShuttingDown: () => state.shuttingDown,
+        notifyChatId,
       });
     } catch (e) {
       console.error(`orchestrator tick error: ${e.message}`);
