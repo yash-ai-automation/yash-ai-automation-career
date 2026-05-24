@@ -62,7 +62,9 @@ test('renderPreamble: fresh mode substitutes URL/RUN_ID/URL_HASH/PROJECT_ROOT', 
     assert.match(body, /URL: https:\/\/x\.test/);
     assert.match(body, /Run ID: 7/);
     assert.match(body, /URL_HASH: h0/);
-    assert.match(body, new RegExp(`PROJECT_ROOT: ${dir.replace(/\//g, '\\/')}`));
+    // Compare via includes() to avoid having to regex-escape the tmpdir path,
+    // which can contain characters that are regex metacharacters.
+    assert.ok(body.includes(`PROJECT_ROOT: ${dir}`), `expected PROJECT_ROOT substitution; got: ${body}`);
   } finally { cleanup(); }
 });
 
