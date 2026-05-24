@@ -222,7 +222,7 @@ test('tickOnce: when notifyChatId is set, sendDocument receives it (regression f
       claudeModel: 'claude-opus-4-7',
       spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, resumePdf: pdfPath }),
       notify: () => {},
-      notifyChatId: 1674727728,  // matches real prod value
+      notifyChatId: 999000111,  // fake numeric chatId for test (never use a real one — secret scanner flags it as PII).
     });
     server.close();
 
@@ -231,7 +231,7 @@ test('tickOnce: when notifyChatId is set, sendDocument receives it (regression f
     const docReq = captured.find(c => c.url.endsWith('/sendDocument'));
     assert.ok(docReq, 'expected at least one POST to /sendDocument');
     assert.ok(
-      docReq.body.includes('name="chat_id"') && docReq.body.includes('1674727728'),
+      docReq.body.includes('name="chat_id"') && docReq.body.includes('999000111'),
       'multipart body must include chat_id form-field with the real numeric chatId, not "undefined"',
     );
     assert.ok(!docReq.body.includes('undefined'), 'multipart body must not contain the string "undefined"');
