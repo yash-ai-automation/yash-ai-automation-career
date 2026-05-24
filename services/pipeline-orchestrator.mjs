@@ -473,7 +473,7 @@ async function main() {
   // ── boot notification (one-shot) ────────────────────────────────────────
   const queuedAtBoot = selectQueueLen(db, 'queued');
   const shortSha = gitSha.slice(0, 7);
-  defaultLogger.info({ event: 'bot_online', queued: queuedAtBoot, git_sha: gitSha, claude_model: claudeModel }, 'orchestrator online');
+  defaultLogger.info({ event: 'bot_online', queued: queuedAtBoot, claude_model: claudeModel }, 'orchestrator online');
   await notify(`✅ Bot online · queue: ${queuedAtBoot} waiting · git ${shortSha}`);
 
   // ── graceful-shutdown state ──────────────────────────────────────────────
