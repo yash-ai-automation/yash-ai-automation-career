@@ -148,3 +148,84 @@ journalctl --user -u pipeline-orchestrator -o cat | jq -c 'select(.event=="bot_o
 | `⏸️ Cap reached` | Working as designed; will resume tomorrow / next ISO week |
 | `OOM detected` | `dmesg \| tail -100`; if tectonic killed, recompile smaller; if claude killed, restart and add memory caps |
 | Telegram doesn't respond at all | `systemctl --user status telegram-listener`; if active, `journalctl --user -u telegram-listener` for `long-poll error`; if backoff still climbing, restart |
+
+## Operating the Self-Improvement Layer
+
+### Phase A — Observability exporter
+
+**Enable:**
+```bash
+# On VPS, edit /etc/yash-pipeline/agent.env:
+FEATURE_EXPORTER=1
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Install + enable systemd timer:
+cp systemd/exporter.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now exporter.timer
+```
+
+**Verify:** `journalctl --user -u exporter -n 50 | grep exporter_done`. Then visit Langfuse dashboard → traces should appear within 5 min.
+
+**Rollback:** `systemctl --user disable --now exporter.timer && sed -i 's/^FEATURE_EXPORTER=1/FEATURE_EXPORTER=0/' /etc/yash-pipeline/agent.env`
+
+### Phase B — Failure-pattern KB
+
+**Enable:**
+```bash
+sed -i 's/^FEATURE_FAILURE_KB=0/FEATURE_FAILURE_KB=1/' /etc/yash-pipeline/agent.env
+systemctl --user restart pipeline-orchestrator
+```
+
+**Curate weekly (15 min):**
+```bash
+sqlite3 ops/work-queue.db "SELECT signature, hits, last_seen FROM failure_patterns ORDER BY hits DESC LIMIT 20;"
+```
+Or via Telegram: `/patterns`
+
+**Suppress a bad hint:** Telegram `/suppress <signature>`
+
+**Review unknown faults:** `ls ops/kb-review-queue/` then add a regex to `services/failure-kb.mjs:SIGNATURE_PATTERNS` and re-deploy.
+
+**Rollback:** `sed -i 's/^FEATURE_FAILURE_KB=1/FEATURE_FAILURE_KB=0/' /etc/yash-pipeline/agent.env && systemctl --user restart pipeline-orchestrator`
+
+### Phase C — Watchdog + heartbeat
+
+**Enable:**
+```bash
+# Get your ping URL from Healthchecks.io → create check named "yash-orchestrator"
+echo "HEALTHCHECK_PING_URL=https://hc-ping.com/<uuid>" >> /etc/yash-pipeline/agent.env
+sed -i 's/^FEATURE_WATCHDOG=0/FEATURE_WATCHDOG=1/' /etc/yash-pipeline/agent.env
+
+cp systemd/watchdog.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now watchdog.service
+systemctl --user restart pipeline-orchestrator
+```
+
+**Verify heartbeat:** check Healthchecks dashboard → should be "up" within 2 min.
+
+**Verify remediations:** induce an OOM (`stress-ng --vm 1 --vm-bytes 3G --timeout 30`); watch journald: `journalctl --user -u watchdog -f`.
+
+**Rollback:** `systemctl --user disable --now watchdog.service && sed -i 's/^FEATURE_WATCHDOG=1/FEATURE_WATCHDOG=0/' /etc/yash-pipeline/agent.env && systemctl --user restart pipeline-orchestrator`
+
+### Phase D — Promptfoo CI
+
+**Enable:** In GitHub repo settings:
+- Settings → Variables → Actions → add `FEATURE_PROMPT_EVAL=1`
+- Settings → Secrets → Actions → ensure `ANTHROPIC_API_KEY` is set
+
+**Test:** push a one-character edit to `resume-optimization-system-based-on-job-description.md`; CI should run prompt-eval workflow.
+
+**Rollback:** Remove the `FEATURE_PROMPT_EVAL` repo variable.
+
+### Smoke tests (manual, pre-rollout)
+
+```bash
+npm run smoke:cloud -- --phase=A
+npm run smoke:cloud -- --phase=B
+npm run smoke:cloud -- --phase=C
+npm run smoke:cloud -- --phase=D
+```
