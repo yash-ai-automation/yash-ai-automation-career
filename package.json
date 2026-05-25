@@ -19,6 +19,9 @@
     "gemini:eval": "node gemini-eval.mjs",
     "prepare": "husky",
     "test:services": "node --test tests/services/*.test.mjs",
+    "test:e2e": "node --test tests/e2e/",
+    "smoke:cloud": "node tools/smoke-cloud.mjs",
+    "smoke:cloud:phase": "node tools/smoke-cloud.mjs --phase",
     "secrets:check": "bash tools/check-secrets.sh"
   },
   "keywords": [
