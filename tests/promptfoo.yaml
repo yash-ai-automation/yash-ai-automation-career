@@ -1,0 +1,50 @@
+description: Regression eval of V2.0 resume prompt against synthetic JD fixtures
+providers:
+  - id: anthropic:claude-opus-4-7
+    config:
+      max_tokens: 8000
+      temperature: 0
+prompts:
+  - file://../resume-optimization-system-based-on-job-description.md
+tests:
+  - vars:
+      jd_file: tests/fixtures/jds/lever-ml-engineer.md
+    assert:
+      - type: regex
+        value: '(?s)\\resumeSubheading.*\\resumeSubheading.*\\resumeSubheading'
+      - type: javascript
+        value: |
+          const bullets = output.match(/\\resumeItem/g) || [];
+          return bullets.length === 15;
+      - type: javascript
+        value: |
+          const skillCats = output.match(/\\textbf\{[A-Za-z\s]+\}:/g) || [];
+          return skillCats.length === 6;
+  - vars:
+      jd_file: tests/fixtures/jds/ashby-fullstack.md
+    assert:
+      - type: javascript
+        value: |
+          const bullets = output.match(/\\resumeItem/g) || [];
+          return bullets.length === 15;
+  - vars:
+      jd_file: tests/fixtures/jds/greenhouse-data.md
+    assert:
+      - type: javascript
+        value: |
+          const bullets = output.match(/\\resumeItem/g) || [];
+          return bullets.length === 15;
+  - vars:
+      jd_file: tests/fixtures/jds/workday-platform.md
+    assert:
+      - type: javascript
+        value: |
+          const bullets = output.match(/\\resumeItem/g) || [];
+          return bullets.length === 15;
+  - vars:
+      jd_file: tests/fixtures/jds/direct-ai-research.md
+    assert:
+      - type: javascript
+        value: |
+          const bullets = output.match(/\\resumeItem/g) || [];
+          return bullets.length === 15;
