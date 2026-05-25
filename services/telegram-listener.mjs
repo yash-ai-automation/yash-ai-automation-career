@@ -43,6 +43,27 @@ export function parseCommand(text) {
   return { cmd, args };
 }
 
+// ── handlePatterns ──────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: query top-10 failure_patterns rows and format as markdown table.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {string} markdown reply
+ */
+export function handlePatterns(db) {
+  const rows = db.prepare(`
+    SELECT signature, hits, last_seen, suppressed
+    FROM failure_patterns
+    ORDER BY hits DESC LIMIT 10
+  `).all();
+  if (rows.length === 0) return '*No patterns learned yet.*';
+  const header = '| signature | hits | last_seen | suppressed |\n|---|---|---|---|';
+  const body = rows.map(r =>
+    `| \`${r.signature}\` | ${r.hits} | ${r.last_seen.slice(0, 10)} | ${r.suppressed ? '✓' : ''} |`
+  ).join('\n');
+  return `*Top 10 failure patterns:*\n\n${header}\n${body}`;
+}
+
 // ── handleUpdate ────────────────────────────────────────────────────────────
 
 /**
@@ -83,6 +104,7 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
         '/status       — Show current pipeline status\n' +
         '/queue        — List up to 10 queued URLs\n' +
         '/cancel <id>  — Cancel a queued or running job\n' +
+        '/patterns     — List top 10 learned failure patterns\n' +
         '/help         — Show this message'
       );
       return { cmd };
@@ -156,6 +178,11 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
       const waiting = selectQueueLen(db, 'queued');
       await send(`✅ Queued #${queueId}: ${host} (position ${waiting})`);
       return { cmd, queueId };
+    }
+
+    case 'patterns': {
+      await send(handlePatterns(db));
+      return { cmd };
     }
 
     case 'cancel': {
