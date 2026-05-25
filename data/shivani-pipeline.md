@@ -1,11 +1,5 @@
 ## Pendientes
 
-/add https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en
-
-/add https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic
-
-/add https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d
-
 /add https://jobs.citi.com/job/-/-/287/94689637440?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
 
 /add https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
@@ -85,5 +79,6 @@
 - [x] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-1713&BRID=1302303&SBDID=1&searchFilled= | CGI | Java/DevOps Analyst-Developer (Intermediate) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_JavaDevopsAnalystDeveloper_Shivani_Anghan_Cover_Letter_2026-05-24.pdf
 - [x] https://barringtongrp.ca/careers/senior-full-stack-developer/ | Barrington Group | Senior Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarringtonGroup_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | HelloFresh | Backend Engineer, Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Hellofresh_BackendEngineerConsumer_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://aviva.wd1.myworkdayjobs.com/en-US/External/job/Markham/Senior-Full-stack-Developer_R-169070 | Aviva | Sr Full stack Developer - Java, Spring Boot | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Aviva_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 
 
