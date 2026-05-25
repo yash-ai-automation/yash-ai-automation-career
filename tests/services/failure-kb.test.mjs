@@ -1,0 +1,125 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+test('extractSignature: Cloudflare 403 on lever.co', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Error: scrapling fetch failed: HTTP 403 Forbidden\nCloudflare challenge detected at https://lever.co/jobs/abc';
+  const result = extractSignature(err, { url: 'https://lever.co/jobs/abc', exitCode: 1 });
+  assert.equal(result.signature, 'scrapling:cloudflare:lever.co');
+  assert.match(result.hint, /cloudflare|browser fallback/i);
+});
+
+test('extractSignature: tectonic exit', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'tectonic: latex error: tectonic exited with code 1\nLaTeX Error: File `foo.sty\' not found';
+  const result = extractSignature(err, { url: 'https://x.test', exitCode: 1 });
+  assert.equal(result.signature, 'tectonic:missing-file');
+  assert.match(result.hint, /tectonic|missing/i);
+});
+
+test('extractSignature: validator bullet-count fail', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'validate_bullets: expected 15 bullets, got 14';
+  const result = extractSignature(err, { url: 'https://x.test', exitCode: 1 });
+  assert.equal(result.signature, 'validator:bullet-count');
+  assert.match(result.hint, /bullet|15/i);
+});
+
+test('extractSignature: OOM', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Out of memory: Killed process 1234 (node)';
+  const result = extractSignature(err, { url: 'https://x.test', exitCode: 137 });
+  assert.equal(result.signature, 'system:oom');
+});
+
+test('extractSignature: rate limit', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'API error: 429 Too Many Requests\nrate_limit_exceeded';
+  const result = extractSignature(err, { url: 'https://api.anthropic.com', exitCode: 1 });
+  assert.equal(result.signature, 'anthropic:rate-limit');
+});
+
+test('extractSignature: Telegram outage', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Telegram Bot API: 502 Bad Gateway';
+  const result = extractSignature(err, { url: 'https://x.test', exitCode: 1 });
+  assert.equal(result.signature, 'telegram:outage');
+});
+
+test('extractSignature: unknown returns {unknown: true, snippet}', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Some never-before-seen weird failure mode XYZ';
+  const result = extractSignature(err, { url: 'https://x.test', exitCode: 1 });
+  assert.equal(result.unknown, true);
+  assert.ok(result.snippet.includes('XYZ'));
+  assert.ok(result.snippet.length <= 200);
+});
+
+test('extractSignature: signature is deterministic', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Error: scrapling fetch failed: HTTP 403 Forbidden\nCloudflare';
+  const a = extractSignature(err, { url: 'https://lever.co/x', exitCode: 1 });
+  const b = extractSignature(err, { url: 'https://lever.co/x', exitCode: 1 });
+  assert.equal(a.signature, b.signature);
+});
+
+test('extractSignature: hint is capped at 100 chars', async () => {
+  const { extractSignature } = await import('../../services/failure-kb.mjs');
+  const err = 'Out of memory: Killed process';
+  const r = extractSignature(err, { url: 'https://x.test', exitCode: 137 });
+  assert.ok(r.hint.length <= 100);
+});
+
+test('regex catalogue is exported for inspection', async () => {
+  const mod = await import('../../services/failure-kb.mjs');
+  assert.ok(Array.isArray(mod.SIGNATURE_PATTERNS));
+  assert.equal(mod.SIGNATURE_PATTERNS.length, 6);
+});
+
+import { initDb } from '../../services/db.mjs';
+import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function setup() {
+  const dir = mkdtempSync(join(tmpdir(), 'lkb-test-'));
+  const db = initDb(join(dir, 'work.db'));
+  const reviewDir = join(dir, 'kb-review-queue');
+  return { db, reviewDir, dir, cleanup: () => { db.close(); rmSync(dir, { recursive: true, force: true }); } };
+}
+
+test('learnFromFailure: known signature upserts pattern', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, reviewDir, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 42, 'scrapling fetch failed: 403 Cloudflare', { url: 'https://lever.co/x', reviewDir });
+    assert.equal(r.kind, 'learned');
+    assert.equal(r.signature, 'scrapling:cloudflare:lever.co');
+    const row = db.prepare('SELECT * FROM failure_patterns WHERE signature=?').get(r.signature);
+    assert.equal(row.hits, 1);
+    assert.equal(row.last_run_id, 42);
+  } finally { cleanup(); }
+});
+
+test('learnFromFailure: unknown signature writes review-queue JSON', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, reviewDir, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 99, 'utterly novel error XYZ-123', { url: 'https://x.test', reviewDir });
+    assert.equal(r.kind, 'review-queued');
+    const files = readdirSync(reviewDir);
+    assert.equal(files.length, 1);
+    const body = JSON.parse(readFileSync(join(reviewDir, files[0]), 'utf8'));
+    assert.equal(body.run_id, 99);
+    assert.ok(body.snippet.includes('XYZ-123'));
+  } finally { cleanup(); }
+});
+
+test('learnFromFailure: review-queue write failure does not throw', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 1, 'unknown failure', { url: 'https://x.test', reviewDir: '/etc/forbidden-review-queue' });
+    assert.equal(r.kind, 'review-queue-failed');
+  } finally { cleanup(); }
+});

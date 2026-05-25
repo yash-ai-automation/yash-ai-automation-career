@@ -1,0 +1,2 @@
+{"__REALTIME_TIMESTAMP":"1748169600000000","_SYSTEMD_USER_UNIT":"pipeline-orchestrator.service","MESSAGE":"tectonic: exit 1"}
+{"__REALTIME_TIMESTAMP":"1748169605000000","_SYSTEMD_USER_UNIT":"pipeline-orchestrator.service","MESSAGE":"LaTeX Error: File `foo.sty' not found"}

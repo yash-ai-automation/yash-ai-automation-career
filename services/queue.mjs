@@ -15,7 +15,7 @@ export function insertQueueRow(db, { url, urlHash, addedBy, telegramMsgId = null
 }
 
 export function selectNextQueued(db) {
-  return db.prepare(`SELECT * FROM queue WHERE status='queued' ORDER BY id LIMIT 1`).get();
+  return db.prepare(`SELECT * FROM queue WHERE status='queued' AND paused=0 ORDER BY id LIMIT 1`).get();
 }
 
 export function markQueueRunning(db, id) {

@@ -11,7 +11,7 @@ import { resolve, join } from 'node:path';
 import { mkdirSync, createWriteStream, readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
-import { initDb, integrityCheck, closeDb } from './db.mjs';
+import { initDb, integrityCheck, closeDb, topHintsByHost } from './db.mjs';
 import {
   selectNextQueued, markQueueRunning, markQueueDone, markQueueFailed, markQueueCancelled,
   insertRun, updateRunStart, updateRunEnd, deleteCheckpoint,
@@ -28,6 +28,21 @@ import { createLogger } from './logger.mjs';
 
 const defaultLogger = createLogger({ service: 'pipeline-orchestrator' });
 
+// ── Healthchecks.io heartbeat ────────────────────────────────────────────────
+// Opt-in: set HEALTHCHECK_PING_URL to a Healthchecks.io ping URL.
+// When env var is missing, returns a no-op stop function.
+// Network errors are swallowed silently so the daemon never crashes on a
+// transient outage. The setInterval is unref()'d so tests exit cleanly.
+export function startHeartbeat({ httpClient = fetch, intervalMs = 60_000 } = {}) {
+  if (!process.env.HEALTHCHECK_PING_URL) return () => {};
+  const url = process.env.HEALTHCHECK_PING_URL;
+  const handle = setInterval(() => {
+    httpClient(url).catch(() => {});
+  }, intervalMs);
+  if (handle.unref) handle.unref();
+  return () => clearInterval(handle);
+}
+
 const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
 const PER_URL_TIMEOUT_MS = 20 * 60 * 1000;   // 20 min per Q3 default
@@ -39,10 +54,34 @@ function hostnameOf(url) {
 
 // ── preamble helpers ────────────────────────────────────────────────────────
 // Exported so tests can verify substitution without spawning claude.
-export function renderPreamble({ projectRoot, mode = 'fresh', vars }) {
+
+// renderPreambleWithHints: pure string transform.
+// When FEATURE_FAILURE_KB=1, substitutes $LEARNED_HINTS with bulleted top-3
+// hints from failure_patterns for the given URL's hostname. When flag is OFF,
+// substitutes with empty string so the placeholder disappears cleanly.
+export function renderPreambleWithHints(db, url, template) {
+  if (process.env.FEATURE_FAILURE_KB !== '1') {
+    return template.replace(/\$LEARNED_HINTS/g, '');
+  }
+  let host = 'unknown';
+  try { host = new URL(url).hostname.toLowerCase(); } catch {}
+  const hints = topHintsByHost(db, host, 3);
+  const bullets = hints.map(h => `- ${h.hint}`).join('\n');
+  return template.replace(/\$LEARNED_HINTS/g, bullets);
+}
+
+// renderPreamble: reads preamble file, optionally injects hints via db, then
+// substitutes all $VAR tokens. When db is null the hint pass is skipped
+// (backwards compatible with all existing callers that omit db).
+export function renderPreamble({ projectRoot, mode = 'fresh', vars, db = null }) {
   const file = mode === 'resume' ? 'resume-run.md' : 'fresh-run.md';
   const path = resolve(projectRoot, 'ops/preambles', file);
   let body = readFileSync(path, 'utf-8');
+  // Apply hint injection before variable substitution so $LEARNED_HINTS is
+  // resolved before the var loop sees it (avoiding any $-token collisions).
+  if (db && vars && vars.URL) {
+    body = renderPreambleWithHints(db, vars.URL, body);
+  }
   // Sort by key length descending so that $URL_HASH is substituted before $URL,
   // $LAST_PHASE before $LAST, etc. The replacement is a function so $-tokens
   // ($&, $$, …) in the value aren't interpreted as special patterns.
@@ -181,6 +220,29 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     exit_code: result.exitCode,
     error: result.error || '',
   }, 'run failed');
+  if (process.env.FEATURE_FAILURE_KB === '1') {
+    try {
+      const logPath = join(projectRoot, 'ops/runs', String(runId), 'claude.log');
+      let errorText = result.error || '';
+      if (existsSync(logPath)) {
+        const full = readFileSync(logPath, 'utf8');
+        errorText = full.slice(-4096); // last 4 KB of claude.log
+      }
+      const reviewDir = join(projectRoot, 'ops/kb-review-queue');
+      const { learnFromFailure } = await import('./failure-kb.mjs');
+      const learnResult = await learnFromFailure(db, runId, errorText, { url: next.url, reviewDir });
+      runLog.info({
+        event: 'failure_kb_result', kind: learnResult.kind, signature: learnResult.signature
+      }, 'learnFromFailure complete');
+      if (learnResult.kind === 'review-queued') {
+        let host = '(unknown)';
+        try { host = new URL(next.url).hostname; } catch {}
+        notify(`⚠️ New fault signature observed at ${host}\nSnippet: ${learnResult.snippet}\nReview ops/kb-review-queue/${runId}.json`);
+      }
+    } catch (e) {
+      runLog.warn({ event: 'failure_kb_threw', err: e.message }, 'learnFromFailure threw; continuing');
+    }
+  }
   notify(formatFailure({
     runId, hostname: hostnameOf(next.url),
     phase: result.failedPhase || 'unknown', error: result.error || '',
@@ -200,6 +262,7 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
       URL: url, RUN_ID: runId, URL_HASH: urlHash, PROJECT_ROOT: projectRoot,
       ...(resumeContext || {}),
     },
+    db,
   });
 
   const runDir = join(projectRoot, 'ops/runs', String(runId));
@@ -476,6 +539,13 @@ async function main() {
   defaultLogger.info({ event: 'bot_online', queued: queuedAtBoot, claude_model: claudeModel }, 'orchestrator online');
   await notify(`✅ Bot online · queue: ${queuedAtBoot} waiting · git ${shortSha}`);
 
+  // ── Healthchecks.io heartbeat (opt-in) ───────────────────────────────────
+  let stopHeartbeat = () => {};
+  if (process.env.FEATURE_WATCHDOG === '1') {
+    stopHeartbeat = startHeartbeat();
+    defaultLogger.info({ event: 'heartbeat_started' }, 'Healthchecks heartbeat ping started');
+  }
+
   // ── graceful-shutdown state ──────────────────────────────────────────────
   // liveRun tracks the in-flight URL so the signal handler can SIGTERM the
   // child + so the post-tick re-queue logic knows which row to reset.
@@ -596,6 +666,7 @@ async function main() {
   // ── drain + exit ─────────────────────────────────────────────────────────
   await notifyStopping('orchestrator shutdown');
   stopWatchdog();
+  stopHeartbeat();
   try { closeDb(db); } catch (e) { defaultLogger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw'); }
   defaultLogger.info({ event: 'daemon_exit', exit_code: state.exitCode }, 'orchestrator exited cleanly');
   process.exit(state.exitCode);

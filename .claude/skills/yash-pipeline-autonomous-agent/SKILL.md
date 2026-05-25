@@ -54,3 +54,26 @@ git push origin main
 - Long-form ops doc: `OPERATIONS.md` (repo root)
 - Spec: `docs/superpowers/specs/2026-05-24-yash-pipeline-autonomous-agent-architecture.md`
 - Drift audit: `docs/superpowers/audits/2026-05-24-spec-vs-code-drift.md`
+
+## Self-Improvement Layer
+
+Four phases, each flag-gated (default OFF). See `OPERATIONS.md § Operating the Self-Improvement Layer` for full runbook.
+
+| Flag | Phase | What it enables |
+|---|---|---|
+| `FEATURE_EXPORTER=1` | A | Langfuse Cloud Hobby observability via `services/exporter.mjs` + 5-min systemd timer |
+| `FEATURE_FAILURE_KB=1` | B | Pre-spawn `$LEARNED_HINTS` injection + post-fail `learnFromFailure` regex catalogue |
+| `FEATURE_WATCHDOG=1` | C | `services/watchdog.mjs` daemon + 60s Healthchecks.io heartbeat |
+| Repo var `FEATURE_PROMPT_EVAL=1` | D | GitHub Actions runs Promptfoo on V2.0/cv.md edits |
+
+Telegram operator commands (Phase B/C):
+- `/patterns` — list top 10 failure patterns
+- `/suppress <signature>` — stop injecting a hint
+- `/unpause` — clear `paused=1` on `queue` after a disk-watch event
+
+Watchdog rules (Phase C):
+1. OOM → `rm -rf /tmp/yash-pipeline-*`
+2. tectonic missing-file → re-run with `--keep-logs`
+3. Two 403s on same host within 30 min → host-cooldown UPSERT
+4. No orchestrator log for >10 min → `systemctl --user restart pipeline-orchestrator`
+5. Disk free <1 GB → `UPDATE queue SET paused=1` + Telegram alert

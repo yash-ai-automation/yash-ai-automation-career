@@ -1,0 +1,31 @@
+name: Prompt regression eval
+
+on:
+  pull_request:
+    paths:
+      - 'resume-optimization-system-based-on-job-description.md'
+      - 'cv.md'
+      - 'tests/fixtures/jds/**'
+      - 'tests/promptfoo.yaml'
+
+jobs:
+  eval:
+    if: ${{ vars.FEATURE_PROMPT_EVAL == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install promptfoo
+        run: npm install -g promptfoo
+      - name: Run eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx promptfoo eval -c tests/promptfoo.yaml --output tests/promptfoo-results.json
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: promptfoo-results
+          path: tests/promptfoo-results.json

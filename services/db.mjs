@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS queue (
   status          TEXT    NOT NULL DEFAULT 'queued',
   attempts        INTEGER NOT NULL DEFAULT 0,
   cancel_requested INTEGER NOT NULL DEFAULT 0,
+  paused          INTEGER NOT NULL DEFAULT 0,
   assigned_at     TEXT,
   completed_at    TEXT,
   CHECK (status IN ('queued','running','done','failed','cancelled','dedup_skipped'))
@@ -61,11 +62,32 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   inputs_path TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS exporter_state (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS failure_patterns (
+  signature   TEXT PRIMARY KEY,
+  hint        TEXT NOT NULL,
+  hits        INTEGER NOT NULL DEFAULT 1,
+  first_seen  TEXT NOT NULL,
+  last_seen   TEXT NOT NULL,
+  last_run_id INTEGER,
+  suppressed  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS failure_patterns_recent ON failure_patterns(last_seen);
 `;
 
 export function initDb(path) {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Idempotent migration: add paused column to existing DBs
+  const hasPaused = db.prepare('PRAGMA table_info(queue)').all().some(c => c.name === 'paused');
+  if (!hasPaused) {
+    db.exec('ALTER TABLE queue ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -77,4 +99,48 @@ export function integrityCheck(db) {
 
 export function closeDb(db) {
   db.close();
+}
+
+export function getCursor(db, key) {
+  const row = db.prepare('SELECT value FROM exporter_state WHERE key = ?').get(key);
+  return row ? Number(row.value) : 0;
+}
+
+export function setCursor(db, key, value) {
+  db.prepare(`
+    INSERT INTO exporter_state(key, value) VALUES(?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, String(value));
+}
+
+export function upsertPattern(db, { signature, hint, runId }) {
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO failure_patterns (signature, hint, hits, first_seen, last_seen, last_run_id)
+    VALUES (?, ?, 1, ?, ?, ?)
+    ON CONFLICT(signature) DO UPDATE SET
+      hits = hits + 1,
+      last_seen = excluded.last_seen,
+      last_run_id = excluded.last_run_id
+  `).run(signature, hint, now, now, runId);
+}
+
+export function topHintsByHost(db, host, limit = 3) {
+  // Match on full host (e.g. 'lever.co') OR on host prefix (e.g. 'lever' from 'lever.co')
+  // so that signatures like 'lever:cloudflare' are found when host='lever.co'.
+  // Escape SQL LIKE wildcards %, _, AND the escape char \ itself.
+  const escapeFn = s => s.replace(/[%_\\]/g, '\\$&');
+  const escapedHost = escapeFn(host);
+  const prefix = host.split('.')[0];
+  const escapedPrefix = escapeFn(prefix);
+  return db.prepare(`
+    SELECT signature, hint, hits, last_seen
+    FROM failure_patterns
+    WHERE (signature LIKE ? ESCAPE '\\' OR hint LIKE ? ESCAPE '\\'
+        OR signature LIKE ? ESCAPE '\\' OR hint LIKE ? ESCAPE '\\')
+      AND suppressed = 0
+      AND last_seen > date('now','-90 days')
+    ORDER BY hits DESC, last_seen DESC
+    LIMIT ?
+  `).all(`%${escapedHost}%`, `%${escapedHost}%`, `%${escapedPrefix}%`, `%${escapedPrefix}%`, limit);
 }

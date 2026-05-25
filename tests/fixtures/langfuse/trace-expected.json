@@ -1,0 +1,21 @@
+{
+  "batch": [
+    {
+      "id": "trace-1247",
+      "type": "trace-create",
+      "timestamp": "2026-05-25T10:00:00.000Z",
+      "body": {
+        "id": "run-1247",
+        "name": "yash-resume-pipeline",
+        "input": "https://lever.co/example",
+        "output": "resumes/yash/Example_AI_Engineer_2026-05-25.pdf",
+        "metadata": {
+          "git_sha": "abc1234",
+          "exit_code": 0,
+          "tokens_in": 12000,
+          "tokens_out": 4500
+        }
+      }
+    }
+  ]
+}

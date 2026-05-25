@@ -1,0 +1,16 @@
+[Unit]
+Description=Yash pipeline self-improvement Langfuse exporter
+After=pipeline-orchestrator.service
+ConditionEnvironment=FEATURE_EXPORTER=1
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/yash-pipeline/agent.env
+WorkingDirectory=/yash-superClaudeHuman/projects/yash-ai-automation-career
+ExecStart=/usr/bin/node services/exporter.mjs
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

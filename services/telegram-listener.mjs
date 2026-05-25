@@ -43,6 +43,27 @@ export function parseCommand(text) {
   return { cmd, args };
 }
 
+// ── handlePatterns ──────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: query top-10 failure_patterns rows and format as markdown table.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {string} markdown reply
+ */
+export function handlePatterns(db) {
+  const rows = db.prepare(`
+    SELECT signature, hits, last_seen, suppressed
+    FROM failure_patterns
+    ORDER BY hits DESC LIMIT 10
+  `).all();
+  if (rows.length === 0) return '*No patterns learned yet.*';
+  const header = '| signature | hits | last_seen | suppressed |\n|---|---|---|---|';
+  const body = rows.map(r =>
+    `| \`${r.signature}\` | ${r.hits} | ${r.last_seen.slice(0, 10)} | ${r.suppressed ? '✓' : ''} |`
+  ).join('\n');
+  return `*Top 10 failure patterns:*\n\n${header}\n${body}`;
+}
+
 // ── handleUpdate ────────────────────────────────────────────────────────────
 
 /**
@@ -51,6 +72,34 @@ export function parseCommand(text) {
  * @param {{ update: object, db: object, allowlist: Set<number>, notifyChatId: number, send: function }} opts
  * @returns {Promise<symbol|null|object>} ALLOWLIST_REJECT | null (no-message update) | dispatch result
  */
+// ── handleSuppress ───────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: set suppressed=1 on a failure_pattern row by signature.
+ * Returns a user-facing reply string (never throws).
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} signature
+ * @returns {string}
+ */
+export function handleSuppress(db, signature) {
+  const r = db.prepare('UPDATE failure_patterns SET suppressed=1 WHERE signature=?').run(signature);
+  if (r.changes === 0) return `❌ Signature \`${signature}\` not found.`;
+  return `✅ Suppressed \`${signature}\`. Future runs won't inject its hint.`;
+}
+
+// ── handleUnpause ─────────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: clear paused=1 on all queue rows, resuming processing.
+ * Returns a user-facing reply string (never throws).
+ * @param {import('better-sqlite3').Database} db
+ * @returns {string}
+ */
+export function handleUnpause(db) {
+  const r = db.prepare('UPDATE queue SET paused=0 WHERE paused=1').run();
+  return `✅ Queue resumed; ${r.changes} row(s) unpaused.`;
+}
+
 export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger }) {
   const message = update.message;
 
@@ -79,11 +128,14 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
     case 'help':
       await send(
         '📋 Commands:\n' +
-        '/add <url>    — Queue a job URL for processing\n' +
-        '/status       — Show current pipeline status\n' +
-        '/queue        — List up to 10 queued URLs\n' +
-        '/cancel <id>  — Cancel a queued or running job\n' +
-        '/help         — Show this message'
+        '/add <url>        — Queue a job URL for processing\n' +
+        '/status           — Show current pipeline status\n' +
+        '/queue            — List up to 10 queued URLs\n' +
+        '/cancel <id>      — Cancel a queued or running job\n' +
+        '/patterns         — List top 10 learned failure patterns\n' +
+        '/suppress <sig>   — Suppress a failure pattern by signature\n' +
+        '/unpause          — Resume processing (clears all paused rows)\n' +
+        '/help             — Show this message'
       );
       return { cmd };
 
@@ -156,6 +208,22 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
       const waiting = selectQueueLen(db, 'queued');
       await send(`✅ Queued #${queueId}: ${host} (position ${waiting})`);
       return { cmd, queueId };
+    }
+
+    case 'patterns': {
+      await send(handlePatterns(db));
+      return { cmd };
+    }
+
+    case 'suppress': {
+      if (!args) { await send('Usage: /suppress <signature>'); return { cmd }; }
+      await send(handleSuppress(db, args));
+      return { cmd };
+    }
+
+    case 'unpause': {
+      await send(handleUnpause(db));
+      return { cmd };
     }
 
     case 'cancel': {

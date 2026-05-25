@@ -1,0 +1,18 @@
+[Unit]
+Description=Yash pipeline self-improvement watchdog (Phase C)
+After=pipeline-orchestrator.service
+ConditionEnvironment=FEATURE_WATCHDOG=1
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/yash-pipeline/agent.env
+WorkingDirectory=/yash-superClaudeHuman/projects/yash-ai-automation-career
+ExecStart=/usr/bin/node services/watchdog.mjs
+Restart=always
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+MemoryMax=128M
+
+[Install]
+WantedBy=default.target
