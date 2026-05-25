@@ -86,3 +86,17 @@ test('heartbeat-miss rule does not fire at exactly 10min', async () => {
   const lastLogTs = now - 9 * 60 * 1000;
   assert.equal(matchHeartbeatMiss({ lastLogTs, now }), false);
 });
+
+test('disk-pause rule fires at <1G free', async () => {
+  const { matchDiskPause } = await import('../../services/watchdog.mjs');
+  assert.equal(matchDiskPause({ freeGb: 0.5 }), true);
+  assert.equal(matchDiskPause({ freeGb: 0.99 }), true);
+  assert.equal(matchDiskPause({ freeGb: 1.0 }), false);
+  assert.equal(matchDiskPause({ freeGb: 4.0 }), false);
+});
+
+test('readDiskFreeGb parses df output', async () => {
+  const { readDiskFreeGb } = await import('../../services/watchdog.mjs');
+  const fakeDf = "Filesystem      1G-blocks  Used Available Use% Mounted on\n/dev/vda1            40G   38G        2G  95% /\n";
+  assert.equal(readDiskFreeGb({ dfOutput: fakeDf }), 2);
+});

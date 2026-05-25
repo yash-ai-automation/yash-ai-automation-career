@@ -104,3 +104,31 @@ export async function remediateHeartbeatMiss({ exec = defaultExec, db } = {}) {
     });
   }
 }
+
+// ── Rule 5/5: disk-free pause ─────────────────────────────────────────────────
+
+export function readDiskFreeGb({ dfOutput, exec = defaultExec } = {}) {
+  const out = dfOutput ?? exec('df -BG / 2>/dev/null', { encoding: 'utf8' });
+  const lines = out.trim().split('\n');
+  if (lines.length < 2) return Infinity;
+  const cols = lines[1].split(/\s+/);
+  const avail = cols[3] || '';
+  return Number(avail.replace('G', '')) || Infinity;
+}
+
+export function matchDiskPause({ freeGb }) {
+  return freeGb < 1.0;
+}
+
+export async function remediateDiskPause({ db, notifier } = {}) {
+  if (db) {
+    db.prepare("UPDATE queue SET paused=1 WHERE status='queued'").run();
+    const { upsertPattern } = await import('./db.mjs');
+    upsertPattern(db, {
+      signature: 'watchdog:disk-pause',
+      hint: 'disk <1G free; queue paused. Use /unpause after cleanup.',
+      runId: 0
+    });
+  }
+  if (notifier) await notifier.tg('🚨 Disk free <1 GB. Queue paused. Run /unpause after clean-up.');
+}
