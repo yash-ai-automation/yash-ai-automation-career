@@ -64,8 +64,9 @@ export function formatStatus({ idle, runningRunId, runningCompany, runningRole, 
 }
 
 export function formatHelp() {
+  const tenant = process.env.TENANT_LABEL || 'yash-pipeline';
   return [
-    '*yash-pipeline bot — commands*',
+    `*${tenant} bot — commands*`,
     '`/add <url>` — queue a job URL',
     '`/queue` — show next up to 10 queued',
     '`/status` — what the orchestrator is doing now',

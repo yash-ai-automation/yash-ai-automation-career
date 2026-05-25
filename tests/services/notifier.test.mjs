@@ -1,7 +1,17 @@
 // tests/services/notifier.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatStart, formatPhaseEnd, formatSuccess, formatFailure } from '../../services/notifier.mjs';
+import { formatStart, formatPhaseEnd, formatSuccess, formatFailure, formatHelp } from '../../services/notifier.mjs';
+
+function withEnv(key, value, fn) {
+  const orig = process.env[key];
+  if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  try { return fn(); }
+  finally {
+    if (orig === undefined) delete process.env[key];
+    else process.env[key] = orig;
+  }
+}
 
 test('formatStart', () => {
   const s = formatStart({ runId: 42, hostname: 'jobs.acme.com' });
@@ -28,4 +38,22 @@ test('formatFailure includes phase + truncated error', () => {
   assert.match(s, /❌.*#42.*jobs\.acme\.com/);
   assert.match(s, /jd_fetch/);
   assert.ok(s.length < 500, 'should truncate error to keep message under 500 chars');
+});
+
+test('formatHelp defaults to yash-pipeline when TENANT_LABEL unset', () => {
+  withEnv('TENANT_LABEL', undefined, () => {
+    assert.match(formatHelp(), /\*yash-pipeline bot — commands\*/);
+  });
+});
+
+test('formatHelp uses TENANT_LABEL env when set (shivani-pipeline)', () => {
+  withEnv('TENANT_LABEL', 'shivani-pipeline', () => {
+    assert.match(formatHelp(), /\*shivani-pipeline bot — commands\*/);
+  });
+});
+
+test('formatHelp ignores empty TENANT_LABEL and falls back to default', () => {
+  withEnv('TENANT_LABEL', '', () => {
+    assert.match(formatHelp(), /\*yash-pipeline bot — commands\*/);
+  });
 });

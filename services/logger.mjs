@@ -49,13 +49,17 @@ export function buildTransportOpts(env = process.env) {
   );
 }
 
-export function createLogger({ service } = {}, destination) {
+export function createLogger({ service, tenant } = {}, destination) {
   if (!service) {
     throw new Error('createLogger: `service` is required');
   }
+  const base = { pid: process.pid, service, git_sha: detectGitSha() };
+  // Only attach `tenant` when explicitly provided so existing Yash log lines stay
+  // byte-identical (no `tenant: undefined` noise in journald / BetterStack).
+  if (tenant) base.tenant = tenant;
   const opts = {
     level: process.env.LOG_LEVEL || 'info',
-    base: { pid: process.pid, service, git_sha: detectGitSha() },
+    base,
     timestamp: pino.stdTimeFunctions.epochTime,
     redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
     formatters: { level(label) { return { level: label }; } },

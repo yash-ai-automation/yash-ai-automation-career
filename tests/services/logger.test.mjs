@@ -134,3 +134,28 @@ test('serializes Error via err field', () => {
 test('throws if service is missing', () => {
   assert.throws(() => createLogger({}, makeSink().stream), /service/i);
 });
+
+test('omits tenant field when {tenant} not provided (Yash backward-compat)', () => {
+  const sink = makeSink();
+  const log = createLogger({ service: 'svc' }, sink.stream);
+  log.info('msg');
+  const line = sink.lines()[0];
+  assert.ok(!('tenant' in line), `tenant should be absent when unset, got: ${JSON.stringify(line)}`);
+});
+
+test('includes tenant field when passed to createLogger', () => {
+  const sink = makeSink();
+  const log = createLogger({ service: 'pipeline-orchestrator', tenant: 'shivani' }, sink.stream);
+  log.info('msg');
+  assert.equal(sink.lines()[0].tenant, 'shivani');
+});
+
+test('tenant survives child() binding', () => {
+  const sink = makeSink();
+  const log = createLogger({ service: 'svc', tenant: 'shivani' }, sink.stream);
+  const child = log.child({ queue_id: 7 });
+  child.info('msg');
+  const line = sink.lines()[0];
+  assert.equal(line.tenant, 'shivani');
+  assert.equal(line.queue_id, 7);
+});

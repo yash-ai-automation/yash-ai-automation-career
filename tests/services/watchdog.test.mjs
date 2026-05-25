@@ -31,6 +31,53 @@ test('remediateOom clears /tmp/yash-pipeline-* (or no-op if empty)', async () =>
   assert.match(calls[0], /rm.*yash-pipeline/);
 });
 
+test('remediateOom defaults to /tmp/yash-pipeline-* glob when TMP_CLEANUP_GLOB unset', async () => {
+  const { remediateOom } = await import('../../services/watchdog.mjs');
+  const orig = process.env.TMP_CLEANUP_GLOB;
+  delete process.env.TMP_CLEANUP_GLOB;
+  const calls = [];
+  try {
+    await remediateOom({ exec: (cmd) => calls.push(cmd) });
+  } finally {
+    if (orig !== undefined) process.env.TMP_CLEANUP_GLOB = orig;
+  }
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /\/tmp\/yash-pipeline-\*/);
+});
+
+test('remediateOom honors TMP_CLEANUP_GLOB env (single glob)', async () => {
+  const { remediateOom } = await import('../../services/watchdog.mjs');
+  const orig = process.env.TMP_CLEANUP_GLOB;
+  process.env.TMP_CLEANUP_GLOB = '/tmp/shivani-pipeline-*';
+  const calls = [];
+  try {
+    await remediateOom({ exec: (cmd) => calls.push(cmd) });
+  } finally {
+    if (orig === undefined) delete process.env.TMP_CLEANUP_GLOB;
+    else process.env.TMP_CLEANUP_GLOB = orig;
+  }
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /\/tmp\/shivani-pipeline-\*/);
+  assert.doesNotMatch(calls[0], /yash-pipeline/);
+});
+
+test('remediateOom honors TMP_CLEANUP_GLOB env (comma-separated multi-glob)', async () => {
+  const { remediateOom } = await import('../../services/watchdog.mjs');
+  const orig = process.env.TMP_CLEANUP_GLOB;
+  process.env.TMP_CLEANUP_GLOB = '/tmp/yash-pipeline-*,/tmp/shivani-pipeline-*';
+  const calls = [];
+  try {
+    await remediateOom({ exec: (cmd) => calls.push(cmd) });
+  } finally {
+    if (orig === undefined) delete process.env.TMP_CLEANUP_GLOB;
+    else process.env.TMP_CLEANUP_GLOB = orig;
+  }
+  // Single exec call covering both globs (so the watchdog stays a one-shot remediation).
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /\/tmp\/yash-pipeline-\*/);
+  assert.match(calls[0], /\/tmp\/shivani-pipeline-\*/);
+});
+
 test('OOM remediation is idempotent', async () => {
   const { remediateOom } = await import('../../services/watchdog.mjs');
   const calls = [];

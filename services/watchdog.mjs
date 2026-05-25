@@ -22,8 +22,19 @@ export function matchOom(message) {
   return /out of memory.*killed/i.test(message);
 }
 
+// Resolve the /tmp cleanup glob(s) used by remediateOom. Accepts a comma-separated
+// list so a single watchdog instance can clean up after both Yash and Shivani workers.
+// Empty / whitespace-only entries are dropped so trailing commas don't produce stray
+// `rm -rf  ...` arguments.
+export function getTmpCleanupGlobs(env = process.env) {
+  const raw = (env.TMP_CLEANUP_GLOB || '/tmp/yash-pipeline-*').trim();
+  if (!raw) return ['/tmp/yash-pipeline-*'];
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export async function remediateOom({ exec = defaultExec, db, runId = null } = {}) {
-  try { exec('rm -rf /tmp/yash-pipeline-* 2>/dev/null || true'); } catch {}
+  const globs = getTmpCleanupGlobs();
+  try { exec(`rm -rf ${globs.join(' ')} 2>/dev/null || true`); } catch {}
   if (db) {
     const { upsertPattern } = await import('./db.mjs');
     upsertPattern(db, {
