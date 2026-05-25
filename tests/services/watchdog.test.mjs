@@ -72,3 +72,17 @@ test('host-cooldown rule ignores >30min gap', async () => {
   ]);
   assert.equal(result, null);
 });
+
+test('heartbeat-miss rule fires when last orchestrator log >10min ago', async () => {
+  const { matchHeartbeatMiss } = await import('../../services/watchdog.mjs');
+  const now = 1748170400000;
+  const lastLogTs = now - 11 * 60 * 1000;
+  assert.equal(matchHeartbeatMiss({ lastLogTs, now }), true);
+});
+
+test('heartbeat-miss rule does not fire at exactly 10min', async () => {
+  const { matchHeartbeatMiss } = await import('../../services/watchdog.mjs');
+  const now = 1748170400000;
+  const lastLogTs = now - 9 * 60 * 1000;
+  assert.equal(matchHeartbeatMiss({ lastLogTs, now }), false);
+});

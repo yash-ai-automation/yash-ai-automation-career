@@ -85,3 +85,22 @@ export async function remediateHostCooldown({ host, db, runId } = {}) {
     });
   }
 }
+
+// ── Rule 4/5: heartbeat-miss ───────────────────────────────────────────────────
+
+export function matchHeartbeatMiss({ lastLogTs, now = Date.now() }) {
+  if (!lastLogTs) return false;
+  return (now - lastLogTs) > 10 * 60 * 1000;
+}
+
+export async function remediateHeartbeatMiss({ exec = defaultExec, db } = {}) {
+  try { exec('systemctl --user restart pipeline-orchestrator'); } catch {}
+  if (db) {
+    const { upsertPattern } = await import('./db.mjs');
+    upsertPattern(db, {
+      signature: 'watchdog:orchestrator-restart',
+      hint: 'orchestrator silent >10min; restarted by watchdog.',
+      runId: 0
+    });
+  }
+}
