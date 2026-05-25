@@ -14,6 +14,56 @@ export function insertQueueRow(db, { url, urlHash, addedBy, telegramMsgId = null
   return Number(r.lastInsertRowid);
 }
 
+// ── /readd <queue_id> support ───────────────────────────────────────────────
+
+/**
+ * Typed error from `readdQueueRow`. `code` is one of:
+ *   - 'not_found'      — no row with this id
+ *   - 'still_running'  — source is running; caller should /cancel first
+ *   - 'already_queued' — source is already queued; `existingPosition` is set
+ *
+ * The listener inspects `code` to pick the right user-facing reply.
+ */
+export class ReaddError extends Error {
+  constructor(code, queueId, extra = {}) {
+    super(`readd ${code} for queue_id=${queueId}`);
+    this.name = 'ReaddError';
+    this.code = code;
+    this.queueId = queueId;
+    Object.assign(this, extra);
+  }
+}
+
+/**
+ * Re-queue a previously-terminal URL (the contract advertised by /add's
+ * dedup-check reply: "Send /readd <queue_id> to force"). Inserts a NEW row
+ * inheriting url + url_hash + added_by from the source; resets attempts,
+ * cancel_requested, assigned_at. NEVER mutates or deletes the source row
+ * (audit history preserved).
+ *
+ * @returns {{ newQueueId: number, url: string, hostname: string }}
+ * @throws  {ReaddError}
+ */
+export function readdQueueRow(db, sourceQueueId) {
+  const src = db.prepare(`SELECT url, url_hash, added_by, status FROM queue WHERE id=?`).get(sourceQueueId);
+  if (!src) throw new ReaddError('not_found', sourceQueueId);
+  if (src.status === 'running') throw new ReaddError('still_running', sourceQueueId);
+  if (src.status === 'queued') {
+    // Position is the count of queued rows with id <= this id (1-based).
+    const row = db.prepare(`SELECT COUNT(*) AS n FROM queue WHERE status='queued' AND id <= ?`).get(sourceQueueId);
+    throw new ReaddError('already_queued', sourceQueueId, { existingPosition: row.n });
+  }
+  // Terminal source (done / failed / cancelled / dedup_skipped) → insert fresh row.
+  const r = db.prepare(`
+    INSERT INTO queue(url, url_hash, added_at, added_by, telegram_msg_id, status)
+    VALUES(?, ?, ?, ?, NULL, 'queued')
+  `).run(src.url, src.url_hash, ISO(), src.added_by);
+  const newQueueId = Number(r.lastInsertRowid);
+  let hostname = src.url;
+  try { hostname = new URL(src.url).hostname || src.url; } catch { /* keep raw */ }
+  return { newQueueId, url: src.url, hostname };
+}
+
 export function selectNextQueued(db) {
   return db.prepare(`SELECT * FROM queue WHERE status='queued' AND paused=0 ORDER BY id LIMIT 1`).get();
 }
