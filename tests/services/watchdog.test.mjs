@@ -54,3 +54,21 @@ test('tectonic rule does NOT match when entries are >30s apart', async () => {
      { message: "LaTeX Error: File `foo.sty' not found", timestampMs: 1748169700000 }]
   ), false);
 });
+
+test('host-cooldown rule matches two 403s on same host within 30 min', async () => {
+  const { matchHostCooldown } = await import('../../services/watchdog.mjs');
+  const result = matchHostCooldown([
+    { message: 'scrapling fetch failed 403 for https://lever.co/abc', timestampMs: 1748169600000 },
+    { message: 'scrapling fetch failed 403 for https://lever.co/def', timestampMs: 1748170200000 }
+  ]);
+  assert.equal(result.host, 'lever.co');
+});
+
+test('host-cooldown rule ignores >30min gap', async () => {
+  const { matchHostCooldown } = await import('../../services/watchdog.mjs');
+  const result = matchHostCooldown([
+    { message: 'scrapling fetch failed 403 for https://lever.co/abc', timestampMs: 1748169600000 },
+    { message: 'scrapling fetch failed 403 for https://lever.co/def', timestampMs: 1748169600000 + 31 * 60 * 1000 }
+  ]);
+  assert.equal(result, null);
+});
