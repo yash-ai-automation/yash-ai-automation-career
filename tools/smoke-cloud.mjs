@@ -51,6 +51,26 @@ async function smokePhaseB() {
   } finally { db.close(); }
 }
 
+async function smokePhaseC() {
+  console.log('[smoke C] Sending one Healthchecks.io ping + verifying response...');
+  if (!process.env.HEALTHCHECK_PING_URL) {
+    console.error('[smoke C] FAIL — HEALTHCHECK_PING_URL not set');
+    process.exit(1);
+  }
+  try {
+    const res = await fetch(process.env.HEALTHCHECK_PING_URL);
+    if (res.ok) {
+      console.log('[smoke C] OK — Healthchecks responded', res.status);
+    } else {
+      console.error('[smoke C] FAIL — status', res.status);
+      process.exit(2);
+    }
+  } catch (e) {
+    console.error('[smoke C] FAIL —', e.message);
+    process.exit(3);
+  }
+}
+
 async function main() {
   if (phase === 'A' || phase === 'all') {
     await smokePhaseA();
@@ -58,7 +78,10 @@ async function main() {
   if (phase === 'B' || phase === 'all') {
     await smokePhaseB();
   }
-  if (phase === 'C' || phase === 'D') {
+  if (phase === 'C' || phase === 'all') {
+    await smokePhaseC();
+  }
+  if (phase === 'D') {
     console.error(`[smoke ${phase}] Not yet implemented (added in later phase tasks).`);
     process.exit(3);
   }
