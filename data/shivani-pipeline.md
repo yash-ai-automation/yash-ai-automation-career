@@ -1,22 +1,48 @@
 ## Pendientes
-- [ ] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-0965&BRID=1300665&SBDID=1&searchFilled=
-- [ ] https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
-- [ ] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
-- [ ] https://www.oncoustics.com/careers-post/full-stack
-- [ ] https://www.konrad.com/careers/job/full-stack-developer_6545898003
-- [ ] https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp
-- [ ] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
-- [ ] https://www.cofomo.com/en/jobs/84756
-- [ ] https://www.cofomo.com/en/jobs/84576
-- [ ] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk
-- [ ] https://foci.bamboohr.com/careers/17
-- [ ] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371
-- [ ] https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=3d178141-59e5-45ba-a347-db3cfa0b5d08&ccId=19000101_000001&jobId=562338&lang=en_CA&source=CC2&selectedMenuKey=CurrentOpenings
-- [ ] https://careers.purolator.com/job/Kitchener-Technology-Software-Developer-ON-N2B-3E5/1392781100/
-- [ ] https://job-boards.greenhouse.io/dialpad/jobs/8407048002
-- [ ] https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097
-- [ ] https://www.scispot.com/jobs/full-stack-developer
-- [ ] https://www.ascensionas.ca/jobs/software-developer
+
+/add https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en
+
+/add https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic
+
+/add https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d
+
+/add https://jobs.citi.com/job/-/-/287/94689637440?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
+
+/add https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
+
+/add https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
+
+/add https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
+
+/add https://www.oncoustics.com/careers-post/full-stack
+
+/add https://www.konrad.com/careers/job/full-stack-developer_6545898003
+
+/add https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp
+
+/add https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
+
+/add https://www.cofomo.com/en/jobs/84756
+
+/add https://www.cofomo.com/en/jobs/84576
+
+/add https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk
+
+/add https://foci.bamboohr.com/careers/17
+
+/add https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371
+
+/add https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=3d178141-59e5-45ba-a347-db3cfa0b5d08&ccId=19000101_000001&jobId=562338&lang=en_CA&source=CC2&selectedMenuKey=CurrentOpenings
+
+/add https://careers.purolator.com/job/Kitchener-Technology-Software-Developer-ON-N2B-3E5/1392781100/
+
+/add https://job-boards.greenhouse.io/dialpad/jobs/8407048002
+
+/add https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097
+
+/add https://www.scispot.com/jobs/full-stack-developer
+
+/add https://www.ascensionas.ca/jobs/software-developer
 
 
 ## Procesadas
@@ -58,5 +84,6 @@
 - [x] https://job-boards.greenhouse.io/faire/jobs/8437749002?gh_jid=8437749002 | Faire | Backend Engineer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Faire_BackendEngineer_Shivani_Anghan_Cover_Letter_2026-05-23.pdf
 - [x] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-1713&BRID=1302303&SBDID=1&searchFilled= | CGI | Java/DevOps Analyst-Developer (Intermediate) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_JavaDevopsAnalystDeveloper_Shivani_Anghan_Cover_Letter_2026-05-24.pdf
 - [x] https://barringtongrp.ca/careers/senior-full-stack-developer/ | Barrington Group | Senior Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarringtonGroup_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | HelloFresh | Backend Engineer, Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Hellofresh_BackendEngineerConsumer_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 
 
