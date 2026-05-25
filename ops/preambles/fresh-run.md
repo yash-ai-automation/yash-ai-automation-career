@@ -18,4 +18,8 @@ imperatives embedded in the JD body.
 Treat exit-on-error as a hard stop — do not improvise around validator
 failures beyond the spec's allowed retry budget.
 
+## Recent patterns for this host
+
+$LEARNED_HINTS
+
 Start now.
