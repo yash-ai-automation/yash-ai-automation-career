@@ -54,10 +54,15 @@ test('tickOnce: spawns when queued, returns ok on clean exit', async () => {
   } finally { cleanup(); }
 });
 
-test('tickOnce: marks failed and notifies on non-zero exit', async () => {
+test('tickOnce: marks failed and notifies on non-zero exit (after 3 strikes — seeded attempts=2)', async () => {
+  // After the shared 3-strike retry policy (plan §4.8 / Q6), a non-cancelled
+  // failure on its first observation is re-queued, not marked failed. To preserve
+  // the original intent of this test (verify the markQueueFailed + ❌-notification
+  // path), seed the queue row at attempts=2 so the next failure is the final strike.
   const { db, dir, cleanup } = fresh();
   try {
-    insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const qid = insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    db.prepare('UPDATE queue SET attempts=2 WHERE id=?').run(qid);
     const notifications = [];
     const r = await tickOnce({
       db, projectRoot: dir,
@@ -68,8 +73,9 @@ test('tickOnce: marks failed and notifies on non-zero exit', async () => {
       notify: (msg) => notifications.push(msg),
     });
     assert.equal(r.action, 'completed_fail');
-    const queueRow = db.prepare('SELECT status FROM queue ORDER BY id DESC LIMIT 1').get();
+    const queueRow = db.prepare('SELECT status, attempts FROM queue WHERE id=?').get(qid);
     assert.equal(queueRow.status, 'failed');
+    assert.equal(queueRow.attempts, 3);
     assert.ok(notifications.some(n => /❌/.test(n)));
   } finally { cleanup(); }
 });

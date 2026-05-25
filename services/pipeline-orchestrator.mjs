@@ -52,6 +52,24 @@ function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return '(unknown)'; }
 }
 
+// ── tenant-aware path resolvers ─────────────────────────────────────────────
+// These pull the audit-log path and preamble dir from env vars so a single
+// orchestrator codebase serves both Yash (default) and Shivani tenants without
+// fork. Both resolvers fall back to Yash defaults when the env var is unset
+// or empty.
+
+export function resolveAuditLogPath(projectRoot, env = process.env) {
+  const raw = (env.AUDIT_LOG_PATH || '').trim();
+  if (!raw) return resolve(projectRoot, 'data/yash-resume-runs.log');
+  return raw.startsWith('/') ? raw : resolve(projectRoot, raw);
+}
+
+export function resolvePreambleDir(projectRoot, env = process.env) {
+  const raw = (env.PREAMBLE_DIR || '').trim();
+  if (!raw) return resolve(projectRoot, 'ops/preambles');
+  return raw.startsWith('/') ? raw : resolve(projectRoot, raw);
+}
+
 // ── preamble helpers ────────────────────────────────────────────────────────
 // Exported so tests can verify substitution without spawning claude.
 
@@ -75,7 +93,7 @@ export function renderPreambleWithHints(db, url, template) {
 // (backwards compatible with all existing callers that omit db).
 export function renderPreamble({ projectRoot, mode = 'fresh', vars, db = null }) {
   const file = mode === 'resume' ? 'resume-run.md' : 'fresh-run.md';
-  const path = resolve(projectRoot, 'ops/preambles', file);
+  const path = join(resolvePreambleDir(projectRoot), file);
   let body = readFileSync(path, 'utf-8');
   // Apply hint injection before variable substitution so $LEARNED_HINTS is
   // resolved before the var loop sees it (avoiding any $-token collisions).
@@ -207,19 +225,34 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     return { action: 'completed_cancelled', runId };
   }
 
+  // Shared 3-strike retry policy (plan §4.8 / Q6 — applies to Yash AND Shivani).
+  // After each non-cancelled failure, increment `attempts`; if newAttempts < MAX,
+  // re-queue (status='queued', assigned_at cleared) and notify "attempt N/MAX … re-queued".
+  // On the final strike, fall through to the existing markQueueFailed + failure_kb path.
+  const MAX_ATTEMPTS = 3;
+  const newAttempts = (next.attempts ?? 0) + 1;
+  const willRetry = newAttempts < MAX_ATTEMPTS;
+
   updateRunEnd(db, runId, {
     endedAt, status: 'fail',
     error: result.error || `exit ${result.exitCode}`,
     phaseTimingsJson: result.phaseTimingsJson,
   });
-  markQueueFailed(db, next.id);
+  if (willRetry) {
+    db.prepare(`UPDATE queue SET status='queued', attempts=?, assigned_at=NULL WHERE id=?`).run(newAttempts, next.id);
+  } else {
+    db.prepare(`UPDATE queue SET status='failed', attempts=?, completed_at=? WHERE id=?`).run(newAttempts, endedAt, next.id);
+  }
   deleteCheckpoint(db, runId);
   runLog.error({
     event: 'run_failed',
     failed_phase: result.failedPhase || 'unknown',
     exit_code: result.exitCode,
     error: result.error || '',
-  }, 'run failed');
+    attempts: newAttempts,
+    max_attempts: MAX_ATTEMPTS,
+    requeued: willRetry,
+  }, willRetry ? 'run failed; re-queuing for retry' : 'run failed (final attempt)');
   if (process.env.FEATURE_FAILURE_KB === '1') {
     try {
       const logPath = join(projectRoot, 'ops/runs', String(runId), 'claude.log');
@@ -243,11 +276,15 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
       runLog.warn({ event: 'failure_kb_threw', err: e.message }, 'learnFromFailure threw; continuing');
     }
   }
-  notify(formatFailure({
+  if (willRetry) {
+    notify(`⚠️ Run #${runId} failed (attempt ${newAttempts}/${MAX_ATTEMPTS}); re-queued`);
+    return { action: 'requeued', runId, attempts: newAttempts };
+  }
+  notify(`${formatFailure({
     runId, hostname: hostnameOf(next.url),
     phase: result.failedPhase || 'unknown', error: result.error || '',
-  }));
-  return { action: 'completed_fail', runId };
+  })}\n(attempt ${newAttempts}/${MAX_ATTEMPTS} — moving to failed)`);
+  return { action: 'completed_fail', runId, attempts: newAttempts };
 }
 
 // --- real spawn(): one `claude -p` per URL, with checkpoint-polling for phase pings ---
@@ -338,7 +375,7 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   logStream.end();
 
   // grep audit log for the per-URL JSONL line
-  const auditPath = resolve(projectRoot, 'data/yash-resume-runs.log');
+  const auditPath = resolveAuditLogPath(projectRoot);
   let parsed = null;
   if (existsSync(auditPath)) {
     const lines = readFileSync(auditPath, 'utf-8').trim().split('\n');

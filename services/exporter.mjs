@@ -1,11 +1,12 @@
 export function buildTrace(runRow, events = []) {
+  const traceName = process.env.TENANT_TRACE_NAME || 'yash-resume-pipeline';
   return {
     id: `trace-${runRow.id}`,
     type: 'trace-create',
     timestamp: runRow.created_at,
     body: {
       id: `run-${runRow.id}`,
-      name: 'yash-resume-pipeline',
+      name: traceName,
       input: runRow.url,
       output: runRow.pdf_path,
       metadata: {

@@ -23,6 +23,29 @@ test('buildTrace produces canonical Langfuse trace shape', () => {
   assert.equal(trace.body.metadata.git_sha, 'abc1234');
 });
 
+test('buildTrace defaults trace name to yash-resume-pipeline when TENANT_TRACE_NAME unset', () => {
+  const orig = process.env.TENANT_TRACE_NAME;
+  delete process.env.TENANT_TRACE_NAME;
+  try {
+    const trace = buildTrace({ id: 1, url: 'http://x', git_sha: 'abc', created_at: '2026-05-25T00:00:00Z' }, []);
+    assert.equal(trace.body.name, 'yash-resume-pipeline');
+  } finally {
+    if (orig !== undefined) process.env.TENANT_TRACE_NAME = orig;
+  }
+});
+
+test('buildTrace uses TENANT_TRACE_NAME env when set (shivani-resume-pipeline)', () => {
+  const orig = process.env.TENANT_TRACE_NAME;
+  process.env.TENANT_TRACE_NAME = 'shivani-resume-pipeline';
+  try {
+    const trace = buildTrace({ id: 2, url: 'http://x', git_sha: 'abc', created_at: '2026-05-25T00:00:00Z' }, []);
+    assert.equal(trace.body.name, 'shivani-resume-pipeline');
+  } finally {
+    if (orig === undefined) delete process.env.TENANT_TRACE_NAME;
+    else process.env.TENANT_TRACE_NAME = orig;
+  }
+});
+
 test('postBatch returns true on 200', async () => {
   const { postBatch } = await import('../../services/exporter.mjs');
   const stub = async (url, opts) => ({ ok: true, status: 200 });
