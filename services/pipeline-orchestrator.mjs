@@ -11,7 +11,7 @@ import { resolve, join } from 'node:path';
 import { mkdirSync, createWriteStream, readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
-import { initDb, integrityCheck, closeDb } from './db.mjs';
+import { initDb, integrityCheck, closeDb, topHintsByHost } from './db.mjs';
 import {
   selectNextQueued, markQueueRunning, markQueueDone, markQueueFailed, markQueueCancelled,
   insertRun, updateRunStart, updateRunEnd, deleteCheckpoint,
@@ -39,10 +39,34 @@ function hostnameOf(url) {
 
 // ── preamble helpers ────────────────────────────────────────────────────────
 // Exported so tests can verify substitution without spawning claude.
-export function renderPreamble({ projectRoot, mode = 'fresh', vars }) {
+
+// renderPreambleWithHints: pure string transform.
+// When FEATURE_FAILURE_KB=1, substitutes $LEARNED_HINTS with bulleted top-3
+// hints from failure_patterns for the given URL's hostname. When flag is OFF,
+// substitutes with empty string so the placeholder disappears cleanly.
+export function renderPreambleWithHints(db, url, template) {
+  if (process.env.FEATURE_FAILURE_KB !== '1') {
+    return template.replace(/\$LEARNED_HINTS/g, '');
+  }
+  let host = 'unknown';
+  try { host = new URL(url).hostname.toLowerCase(); } catch {}
+  const hints = topHintsByHost(db, host, 3);
+  const bullets = hints.map(h => `- ${h.hint}`).join('\n');
+  return template.replace(/\$LEARNED_HINTS/g, bullets);
+}
+
+// renderPreamble: reads preamble file, optionally injects hints via db, then
+// substitutes all $VAR tokens. When db is null the hint pass is skipped
+// (backwards compatible with all existing callers that omit db).
+export function renderPreamble({ projectRoot, mode = 'fresh', vars, db = null }) {
   const file = mode === 'resume' ? 'resume-run.md' : 'fresh-run.md';
   const path = resolve(projectRoot, 'ops/preambles', file);
   let body = readFileSync(path, 'utf-8');
+  // Apply hint injection before variable substitution so $LEARNED_HINTS is
+  // resolved before the var loop sees it (avoiding any $-token collisions).
+  if (db && vars && vars.URL) {
+    body = renderPreambleWithHints(db, vars.URL, body);
+  }
   // Sort by key length descending so that $URL_HASH is substituted before $URL,
   // $LAST_PHASE before $LAST, etc. The replacement is a function so $-tokens
   // ($&, $$, …) in the value aren't interpreted as special patterns.
@@ -200,6 +224,7 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
       URL: url, RUN_ID: runId, URL_HASH: urlHash, PROJECT_ROOT: projectRoot,
       ...(resumeContext || {}),
     },
+    db,
   });
 
   const runDir = join(projectRoot, 'ops/runs', String(runId));
