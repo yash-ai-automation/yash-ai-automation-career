@@ -1,6 +1,8 @@
-# Job Pipeline
-
 ## Pendientes
+
+/add https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d
+
+/add https://careers.qualcomm.com/careers/job/446717095636?hl=en-US&utm_source=linkedin&domain=qualcomm.com&source=APPLICANT_SOURCE-6-2
 
 ## Procesadas
 - [x] https://mogo.applytojob.com/apply/gOPOa1WL7r/AINative-Full-Stack-Engineer | Orion Digital | AI-Native Full Stack Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ❌
