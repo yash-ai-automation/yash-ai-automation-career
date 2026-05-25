@@ -4,22 +4,96 @@
 // Exports:
 //   ALLOWLIST_REJECT — Symbol returned when update.message.from.id is not in the allowlist.
 //   parseCommand(text) — { cmd, args } parser.
-//   handleUpdate({ update, db, allowlist, notifyChatId, send }) — async dispatcher.
+//   handleUpdate({ update, db, allowlist, notifyChatId, send, tenantLabel? }) — async dispatcher.
+//   resolveQueueDbPath(env, projectRoot) — env-aware DB-path resolver (mirrors orchestrator).
+//   assertTenantDbConsistency({ tenant, dbPath }) — fail-fast guard against cross-tenant DB writes.
 //   main() — daemon entry point; long-poll loop.
 //
 // Env (used by main() only):
 //   TELEGRAM_BOT_TOKEN         — required
 //   TELEGRAM_ALLOWLIST         — CSV of integer user IDs (required, or exit 5)
 //   TELEGRAM_NOTIFY_CHAT_ID    — numeric chat ID for outbound notifications (required, or exit 5)
+//   WORK_QUEUE_DB              — optional, absolute or relative-to-PROJECT_ROOT path to the queue DB
+//                                (must match orchestrator's value within the same tenant).
+//   TENANT                     — optional tenant tag ('shivani' for the Shivani twin; unset = Yash).
+//   TENANT_LABEL               — optional user-facing tenant label used as a /add reply prefix.
 
 import crypto from 'node:crypto';
+import { join, isAbsolute, resolve } from 'node:path';
 import { validateUrl } from './url-validate.mjs';
 import { checkDuplicate } from './dedup.mjs';
 import { insertQueueRow, requestCancel, selectQueueLen, upsertTelegramOffset, selectTelegramOffset } from './queue.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
 import { createLogger } from './logger.mjs';
 
+// Tenants whose data must NEVER land in the default (Yash) queue. Extend this
+// list when adding a new tenant — the consistency guard uses it symmetrically.
+const KNOWN_SIBLING_TENANTS = ['shivani'];
+
 const defaultLogger = createLogger({ service: 'telegram-listener' });
+
+// ── resolveQueueDbPath ──────────────────────────────────────────────────────
+
+/**
+ * Resolve the SQLite queue DB path the listener should open.
+ *
+ * Mirrors services/pipeline-orchestrator.mjs main()'s logic so the two daemons
+ * always agree on which file is the queue DB. The previous hardcoded
+ * `${projectRoot}/ops/work-queue.db` caused the Shivani listener to write into
+ * the Yash DB even though Shivani's systemd unit set WORK_QUEUE_DB correctly.
+ *
+ * @param {Record<string, string|undefined>} env  — typically process.env
+ * @param {string} projectRoot                    — used when env value is relative/missing
+ * @returns {string} absolute path
+ */
+export function resolveQueueDbPath(env, projectRoot) {
+  const raw = env && env.WORK_QUEUE_DB;
+  if (!raw) return resolve(projectRoot, 'ops/work-queue.db');
+  return isAbsolute(raw) ? raw : resolve(projectRoot, raw);
+}
+
+// ── assertTenantDbConsistency ───────────────────────────────────────────────
+
+/**
+ * Refuse to start when TENANT and the resolved DB path disagree. This makes
+ * the cross-tenant DB-routing bug structurally impossible: even a typo in a
+ * systemd EnvironmentFile (e.g. WORK_QUEUE_DB pointing at the Yash DB from a
+ * Shivani unit) is caught at process boot instead of silently corrupting
+ * queue ownership.
+ *
+ * Rules:
+ *   - tenant unset OR 'yash': dbPath must NOT contain any known sibling-tenant
+ *     segment (e.g. `/shivani/`).
+ *   - tenant === '<sibling>' (e.g. 'shivani'): dbPath MUST contain
+ *     `/<sibling>/` as a path segment.
+ *
+ * @param {{ tenant: string|undefined, dbPath: string }} opts
+ * @throws {Error} if the tenant and DB path are inconsistent.
+ */
+export function assertTenantDbConsistency({ tenant, dbPath }) {
+  const t = (tenant || '').trim().toLowerCase();
+  if (!t || t === 'yash') {
+    for (const sibling of KNOWN_SIBLING_TENANTS) {
+      if (dbPath.includes(`/${sibling}/`)) {
+        throw new Error(
+          `Tenant/DB mismatch: TENANT=${tenant ?? '(unset, treated as yash)'} ` +
+          `but WORK_QUEUE_DB resolved to a path containing '/${sibling}/' (${dbPath}). ` +
+          `Refusing to start to prevent cross-tenant queue writes.`,
+        );
+      }
+    }
+    return;
+  }
+  // Non-Yash tenant: dbPath must contain its own segment.
+  const expected = `/${t}/`;
+  if (!dbPath.includes(expected)) {
+    throw new Error(
+      `Tenant/DB mismatch: TENANT=${t} expects WORK_QUEUE_DB to contain '${expected}', ` +
+      `but it resolved to '${dbPath}'. ` +
+      `Refusing to start to prevent cross-tenant queue writes.`,
+    );
+  }
+}
 
 // ── Public sentinel ─────────────────────────────────────────────────────────
 
@@ -100,7 +174,12 @@ export function handleUnpause(db) {
   return `✅ Queue resumed; ${r.changes} row(s) unpaused.`;
 }
 
-export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger }) {
+export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger, tenantLabel }) {
+  // When tenantLabel is set, all /add replies are prefixed `[<label>] ...` so a
+  // misrouted /add (user picks the wrong bot from a look-alike username) is
+  // immediately visible in Telegram rather than silently being processed by the
+  // wrong tenant. Yash backward compatibility: omit tenantLabel → no prefix.
+  const tag = tenantLabel ? `[${tenantLabel}] ` : '';
   const message = update.message;
 
   // Updates with no message object at all → ignore silently.
@@ -181,11 +260,11 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
       const urlHash = crypto.createHash('sha256').update(url).digest('hex').slice(0, 16);
       const dup = checkDuplicate(db, url);
       if (dup.type === 'in_queue') {
-        await send(`ℹ️ Already in queue as #${dup.existingId}`);
+        await send(`${tag}ℹ️ Already in queue as #${dup.existingId}`);
         return { cmd, dedup: dup.type };
       }
       if (dup.type === 'recent_success') {
-        await send(`ℹ️ Already done in last 24h (run #${dup.runId}). Send /readd <queue_id> to force.`);
+        await send(`${tag}ℹ️ Already done in last 24h (run #${dup.runId}). Send /readd <queue_id> to force.`);
         return { cmd, dedup: dup.type };
       }
 
@@ -206,7 +285,7 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
       let host = url;
       try { host = new URL(url).hostname; } catch { /* keep raw */ }
       const waiting = selectQueueLen(db, 'queued');
-      await send(`✅ Queued #${queueId}: ${host} (position ${waiting})`);
+      await send(`${tag}✅ Queued #${queueId}: ${host} (position ${waiting})`);
       return { cmd, queueId };
     }
 
@@ -277,17 +356,29 @@ export async function main() {
   const { getUpdates, sendMessage } = await import('./telegram-client.mjs');
 
   const projectRoot = process.env.PROJECT_ROOT || process.cwd();
-  const { join } = await import('node:path');
-  const dbPath = join(projectRoot, 'ops', 'work-queue.db');
+  const tenant = (process.env.TENANT || '').trim().toLowerCase() || undefined;
+  const tenantLabel = (process.env.TENANT_LABEL || '').trim() || undefined;
+
+  // Tenant-aware DB-path resolution. WORK_QUEUE_DB MUST match the value the
+  // sibling orchestrator opens — assertTenantDbConsistency below fails-fast on
+  // any mismatch so the cross-tenant routing bug is structurally impossible.
+  const dbPath = resolveQueueDbPath(process.env, projectRoot);
+  assertTenantDbConsistency({ tenant, dbPath });
   const db = initDb(dbPath);
+
+  // Per-process logger: now carries the tenant tag so journald lines from the
+  // Yash and Shivani listeners are no longer indistinguishable.
+  const logger = createLogger({ service: 'telegram-listener', tenant });
 
   const send = (text) => sendMessage(text, { chatId: notifyChatId });
 
   // Note: allowlist user IDs and notifyChatId are PII; log only count + presence flag.
-  defaultLogger.info({
+  logger.info({
     event: 'listener_started',
     allowlist_size: allowlist.size,
     notify_chat_configured: notifyChatId > 0,
+    db_path: dbPath,
+    tenant_label: tenantLabel,
   }, 'telegram-listener started');
 
   // Mark service READY for systemd Type=notify, then start the WatchdogSec= pinger.
@@ -299,7 +390,7 @@ export async function main() {
   const onSignal = (sig) => {
     if (!running) return;
     running = false;
-    defaultLogger.info({ event: 'shutdown_requested', signal: sig }, 'draining for clean exit');
+    logger.info({ event: 'shutdown_requested', signal: sig }, 'draining for clean exit');
   };
   process.on('SIGTERM', () => onSignal('SIGTERM'));
   process.on('SIGINT', () => onSignal('SIGINT'));
@@ -324,16 +415,16 @@ export async function main() {
     } catch (err) {
       if (!running) break;
       const nextBackoff = Math.min((backoffMs || 5_000) * 3, 15 * 60_000);
-      defaultLogger.error({ event: 'long_poll_error', backoff_ms: nextBackoff, err }, 'getUpdates failed');
+      logger.error({ event: 'long_poll_error', backoff_ms: nextBackoff, err }, 'getUpdates failed');
       backoffMs = nextBackoff;
       continue;
     }
 
     for (const update of updates) {
       try {
-        await handleUpdate({ update, db, allowlist, notifyChatId, send });
+        await handleUpdate({ update, db, allowlist, notifyChatId, send, logger, tenantLabel });
       } catch (err) {
-        defaultLogger.error({ event: 'handle_update_failed', update_id: update.update_id, err }, 'handleUpdate threw');
+        logger.error({ event: 'handle_update_failed', update_id: update.update_id, err }, 'handleUpdate threw');
       }
 
       offset = update.update_id + 1;
@@ -348,9 +439,9 @@ export async function main() {
     const { closeDb } = await import('./db.mjs');
     closeDb(db);
   } catch (e) {
-    defaultLogger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw');
+    logger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw');
   }
-  defaultLogger.info({ event: 'daemon_exit' }, 'telegram-listener exited cleanly');
+  logger.info({ event: 'daemon_exit' }, 'telegram-listener exited cleanly');
 }
 
 // Interruptible sleep: resolves when `ms` elapse or `signal()` returns true.

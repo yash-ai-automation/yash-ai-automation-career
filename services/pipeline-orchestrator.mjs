@@ -23,10 +23,19 @@ import { analyzeRebootState, computeNextPhase, PHASE_ORDER } from './reboot-resu
 import { formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd, formatCancelled } from './notifier.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
 import { createLogger } from './logger.mjs';
+import { assertTenantDbConsistency } from './telegram-listener.mjs';
 // NOTE: telegram-client.mjs is NOT statically imported here — it doesn't exist until Task 3.1.
 // All calls use lazy dynamic import() with try/catch fallback inside main() and tickOnce().
 
-const defaultLogger = createLogger({ service: 'pipeline-orchestrator' });
+// Tenant is read from process.env at import time — daemons always have TENANT
+// set before node loads (systemd EnvironmentFile), so the orchestrator's
+// journald lines now carry `tenant=shivani` (or omit the field for Yash). This
+// makes cross-tenant misroutes detectable in one `grep tenant=` instead of
+// hunting through pid → cgroup → unit.
+const defaultLogger = createLogger({
+  service: 'pipeline-orchestrator',
+  tenant: (process.env.TENANT || '').trim().toLowerCase() || undefined,
+});
 
 // ── Healthchecks.io heartbeat ────────────────────────────────────────────────
 // Opt-in: set HEALTHCHECK_PING_URL to a Healthchecks.io ping URL.
@@ -526,6 +535,12 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
 async function main() {
   const projectRoot = process.env.PROJECT_ROOT || process.cwd();
   const dbPath = process.env.WORK_QUEUE_DB || join(projectRoot, 'ops/work-queue.db');
+  // Defense in depth: same guard the listener applies. Catches a misconfigured
+  // systemd EnvironmentFile (e.g. Shivani unit pointing WORK_QUEUE_DB at the
+  // Yash DB) at process boot, so no Shivani-intended row can ever be picked up
+  // by the Yash orchestrator.
+  const tenant = (process.env.TENANT || '').trim().toLowerCase() || undefined;
+  assertTenantDbConsistency({ tenant, dbPath });
   mkdirSync(join(projectRoot, 'ops/checkpoints'), { recursive: true });
   mkdirSync(join(projectRoot, 'ops/runs'), { recursive: true });
 
