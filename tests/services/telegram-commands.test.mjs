@@ -27,3 +27,24 @@ test('/patterns returns top 10 by hits DESC as markdown', async () => {
     assert.equal(reply.includes('sig-0'), false); // sig-0 has hits=1, falls outside top 10
   } finally { cleanup(); }
 });
+
+test('/suppress sets suppressed=1 on matching signature', async () => {
+  const { handleSuppress } = await import('../../services/telegram-listener.mjs');
+  const { db, cleanup } = setup();
+  try {
+    upsertPattern(db, { signature: 'sig-x', hint: 'h', runId: 1 });
+    const reply = handleSuppress(db, 'sig-x');
+    const row = db.prepare('SELECT suppressed FROM failure_patterns WHERE signature=?').get('sig-x');
+    assert.equal(row.suppressed, 1);
+    assert.match(reply, /suppressed/i);
+  } finally { cleanup(); }
+});
+
+test('/suppress unknown signature returns error reply', async () => {
+  const { handleSuppress } = await import('../../services/telegram-listener.mjs');
+  const { db, cleanup } = setup();
+  try {
+    const reply = handleSuppress(db, 'never-existed');
+    assert.match(reply, /not found|no such/i);
+  } finally { cleanup(); }
+});

@@ -72,6 +72,21 @@ export function handlePatterns(db) {
  * @param {{ update: object, db: object, allowlist: Set<number>, notifyChatId: number, send: function }} opts
  * @returns {Promise<symbol|null|object>} ALLOWLIST_REJECT | null (no-message update) | dispatch result
  */
+// ── handleSuppress ───────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: set suppressed=1 on a failure_pattern row by signature.
+ * Returns a user-facing reply string (never throws).
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} signature
+ * @returns {string}
+ */
+export function handleSuppress(db, signature) {
+  const r = db.prepare('UPDATE failure_patterns SET suppressed=1 WHERE signature=?').run(signature);
+  if (r.changes === 0) return `❌ Signature \`${signature}\` not found.`;
+  return `✅ Suppressed \`${signature}\`. Future runs won't inject its hint.`;
+}
+
 export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger }) {
   const message = update.message;
 
@@ -100,12 +115,13 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
     case 'help':
       await send(
         '📋 Commands:\n' +
-        '/add <url>    — Queue a job URL for processing\n' +
-        '/status       — Show current pipeline status\n' +
-        '/queue        — List up to 10 queued URLs\n' +
-        '/cancel <id>  — Cancel a queued or running job\n' +
-        '/patterns     — List top 10 learned failure patterns\n' +
-        '/help         — Show this message'
+        '/add <url>        — Queue a job URL for processing\n' +
+        '/status           — Show current pipeline status\n' +
+        '/queue            — List up to 10 queued URLs\n' +
+        '/cancel <id>      — Cancel a queued or running job\n' +
+        '/patterns         — List top 10 learned failure patterns\n' +
+        '/suppress <sig>   — Suppress a failure pattern by signature\n' +
+        '/help             — Show this message'
       );
       return { cmd };
 
@@ -182,6 +198,12 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
 
     case 'patterns': {
       await send(handlePatterns(db));
+      return { cmd };
+    }
+
+    case 'suppress': {
+      if (!args) { await send('Usage: /suppress <signature>'); return { cmd }; }
+      await send(handleSuppress(db, args));
       return { cmd };
     }
 
