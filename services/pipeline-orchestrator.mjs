@@ -7,7 +7,7 @@
 // into tickOnce() and runs the poll loop with a 2-second cadence.
 
 import { spawn as nodeSpawn } from 'node:child_process';
-import { resolve, join } from 'node:path';
+import { resolve, join, isAbsolute } from 'node:path';
 import { mkdirSync, createWriteStream, readFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
@@ -20,7 +20,7 @@ import {
 } from './queue.mjs';
 import { checkCap } from './cap.mjs';
 import { analyzeRebootState, computeNextPhase, PHASE_ORDER } from './reboot-resume.mjs';
-import { formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd, formatCancelled } from './notifier.mjs';
+import { formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd, formatCancelled, formatSkipped } from './notifier.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
 import { createLogger } from './logger.mjs';
 import { assertTenantDbConsistency } from './telegram-listener.mjs';
@@ -56,6 +56,90 @@ const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
 const PER_URL_TIMEOUT_MS = 20 * 60 * 1000;   // 20 min per Q3 default
 const SIGKILL_GRACE_MS = 10_000;
+
+// ── verifyRunArtifacts ──────────────────────────────────────────────────────
+
+/**
+ * Gate the orchestrator's "this run completed successfully" decision on the
+ * actual existence of the declared artifacts on disk. Before this guard, exit
+ * code 0 alone was enough to mark a queue row `done` and emit `formatSuccess`,
+ * which let the 2026-05-25 dedup-on-retry sequence (run #12 dies before cover
+ * letter; run #13 mark-skipped via partial duplicate) silently report
+ * "✅ Score 0/100 · role unknown" with no cover letter on disk.
+ *
+ * Two outcomes are considered "ok":
+ *   - `kind: 'skip'`  — the runner explicitly called mark-skipped (no new
+ *      artifacts expected). The caller MUST use formatSkipped (not
+ *      formatSuccess) so the Telegram surface reflects what actually happened.
+ *   - `kind: 'complete'` — all three declared artifacts (jdPath, resumePdf,
+ *      coverLetterPdf) exist on disk. The caller can use formatSuccess.
+ *
+ * Anything else → `ok: false`, with `missing` enumerating the specific
+ * artifact(s) that are absent. The caller MUST treat this as a failure and
+ * re-queue via the 3-strike retry policy.
+ *
+ * @param {{ result: object, projectRoot: string }} opts
+ * @returns {{ ok: boolean, kind: 'skip'|'complete', missing: string[] }}
+ */
+export function verifyRunArtifacts({ result, projectRoot }) {
+  if (result && result.isSkip) {
+    return { ok: true, kind: 'skip', missing: [] };
+  }
+  const expected = {
+    jd: result?.jdPath ?? null,
+    pdf: result?.resumePdf ?? null,
+    cover_letter_pdf: result?.coverLetterPdf ?? null,
+  };
+  const missing = [];
+  for (const [key, relPath] of Object.entries(expected)) {
+    if (!relPath) {
+      missing.push(`${key} (not declared)`);
+      continue;
+    }
+    const absPath = isAbsolute(relPath) ? relPath : join(projectRoot, relPath);
+    if (!existsSync(absPath)) {
+      missing.push(`${key} (${relPath} missing on disk)`);
+    }
+  }
+  return { ok: missing.length === 0, kind: 'complete', missing };
+}
+
+// ── createPhaseTracker ──────────────────────────────────────────────────────
+
+/**
+ * Stateful tracker for the orchestrator's checkpoint poll: every CHECKPOINT_POLL_MS
+ * the orchestrator reads `checkpoints.last_phase` and, if it changed, emits a
+ * phase_end event with the duration.
+ *
+ * The pre-fix code computed elapsedMs as `now - (phaseStarts.get(phase) || now)`,
+ * which always evaluated to 0 on first observation because each phase name was
+ * seen exactly once (lastSeenPhase guard) and phaseStarts was empty. Every phase
+ * therefore reported "0 ms" in Telegram (cosmetic bug, real noise).
+ *
+ * This tracker carries the previous phase's end time across observations so the
+ * duration is the actual gap between phase boundaries.
+ *
+ * @param {number} initialNow  — typically Date.now() at spawn start
+ */
+export function createPhaseTracker(initialNow = Date.now()) {
+  let lastSeenPhase = null;
+  let lastPhaseEndTime = initialNow;
+  return {
+    /**
+     * Observe the current checkpointed phase name. Returns
+     * `{ newPhase: true, phase, elapsedMs }` exactly once per distinct phase
+     * name; returns `{ newPhase: false }` for unchanged or empty observations.
+     */
+    observe(currentPhase, nowFn = Date.now) {
+      if (!currentPhase || currentPhase === lastSeenPhase) return { newPhase: false };
+      const now = nowFn();
+      const elapsedMs = now - lastPhaseEndTime;
+      lastSeenPhase = currentPhase;
+      lastPhaseEndTime = now;
+      return { newPhase: true, phase: currentPhase, elapsedMs };
+    },
+  };
+}
 
 function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return '(unknown)'; }
@@ -180,6 +264,52 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
   }
 
   if (result.exitCode === 0) {
+    // Artifact-gated completion: a 0 exit alone is NOT enough to declare success.
+    // Either the runner explicitly skipped (mark-skipped → result.isSkip = true,
+    // emit formatSkipped + close the row), or all three declared artifacts must
+    // exist on disk. Anything else is a false success and gets rerouted into the
+    // failure branch so the 3-strike retry re-attempts the missing work.
+    const verify = verifyRunArtifacts({ result, projectRoot });
+
+    if (verify.kind === 'skip') {
+      updateRunEnd(db, runId, {
+        endedAt, status: 'ok', score: result.score, slug: result.slug,
+        jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
+        tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
+        phaseTimingsJson: result.phaseTimingsJson,
+      });
+      markQueueDone(db, next.id);
+      deleteCheckpoint(db, runId);
+      runLog.info({
+        event: 'run_completed_skip',
+        skip_reason: result.skipReason || null,
+      }, 'run completed via mark-skipped (no new artifacts)');
+      notify(formatSkipped({
+        runId, hostname: hostnameOf(next.url), reason: result.skipReason,
+      }));
+      return { action: 'completed_skip', runId };
+    }
+
+    if (!verify.ok) {
+      // Reroute into the failure branch (defined just below) so the 3-strike
+      // retry re-attempts the missing work. Replace the result fields the
+      // failure handler reads so the failure_phase + error are accurate.
+      runLog.error({
+        event: 'incomplete_artifacts',
+        missing: verify.missing,
+        declared_jd: result.jdPath,
+        declared_pdf: result.resumePdf,
+        declared_cl: result.coverLetterPdf,
+      }, 'runner reported exit 0 but expected artifacts are missing');
+      result = {
+        ...result,
+        exitCode: 1,
+        error: `incomplete_artifacts: ${verify.missing.join(', ')}`,
+        failedPhase: 'verify_artifacts',
+      };
+      // fall through to the existing failure/retry branch below
+    } else {
+
     updateRunEnd(db, runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -221,6 +351,7 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
       }
     }
     return { action: 'completed_ok', runId };
+    }   // end of `else` (verify.ok) — falls through to failure branch otherwise
   }
 
   // failure or cancelled
@@ -346,17 +477,18 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     catch (e) { defaultLogger.error({ event: 'on_spawn_hook_failed', run_id: runId, err: e }, 'onSpawn hook threw'); }
   }
 
-  // checkpoint poll: every 2s, read checkpoints.last_phase; if changed, fire onPhaseEnd
-  let lastSeenPhase = null;
-  const phaseStarts = new Map();
+  // checkpoint poll: every 2s, read checkpoints.last_phase; if changed, fire onPhaseEnd.
+  // The tracker carries the prior phase's end time so elapsedMs is the gap from
+  // the previous phase boundary — not 0 (the pre-fix behavior).
+  const tracker = createPhaseTracker(Date.now());
+  let lastSeenPhase = null;          // still needed for the resume/failedPhase fallback below
   const phasePoll = setInterval(() => {
     const cp = selectCheckpoint(db, runId);
-    if (cp && cp.last_phase !== lastSeenPhase) {
-      const now = Date.now();
-      const startedAt = phaseStarts.get(cp.last_phase) || now;
-      onPhaseEnd({ phase: cp.last_phase, elapsedMs: now - startedAt });
-      phaseStarts.set(cp.last_phase, now);
-      lastSeenPhase = cp.last_phase;
+    if (!cp) return;
+    const ev = tracker.observe(cp.last_phase);
+    if (ev.newPhase) {
+      lastSeenPhase = ev.phase;
+      onPhaseEnd({ phase: ev.phase, elapsedMs: ev.elapsedMs });
     }
   }, CHECKPOINT_POLL_MS);
 
@@ -407,6 +539,9 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     failedPhase: lastSeenPhase ? computeNextPhase(lastSeenPhase) : 'jd_fetch_end',
     error: exit.code === 0 ? null : `claude -p exit ${exit.code} signal ${exit.signal || 'none'}`,
     phaseTimingsJson: parsed ? JSON.stringify(parsed) : null,
+    // verifyRunArtifacts + skip-vs-success branching in tickOnce keys on these.
+    isSkip: parsed?.status === 'skip',
+    skipReason: parsed?.reason ?? null,
   };
 }
 

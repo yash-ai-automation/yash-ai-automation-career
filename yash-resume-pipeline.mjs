@@ -248,9 +248,14 @@ SUBCOMMANDS['check-duplicate'] = async (args) => {
   const which = [];
   if (await fileExists(jd_abs)) which.push('jd');
   if (await fileExists(pdf_abs)) which.push('pdf');
-  // Cover letter is reported but does NOT trigger the dedup gate
-  // (dedup gate is JD+PDF; cover-letter alone shouldn't block reruns).
+  // Cover letter is reported but does NOT flip the legacy `exists` gate
+  // (cover-letter alone shouldn't block reruns). The strong all-three condition
+  // is `all_artifacts_present` — added after the 2026-05-25 false-success
+  // incident: run #12 produced JD + resume but died at cl_gen_start, run #13
+  // wrongly mark-skipped via `exists:true` even though no CL existed. Playbook
+  // step 5 now branches: all_artifacts_present → mark-skipped, exists && !cover_letter_exists → CL-only path.
   const cover_letter_exists = await fileExists(cl_abs);
+  const all_artifacts_present = which.includes('jd') && which.includes('pdf') && cover_letter_exists;
   ok({
     exists: which.length > 0,
     which,
@@ -258,6 +263,7 @@ SUBCOMMANDS['check-duplicate'] = async (args) => {
     pdf_path: pdf_rel,
     cover_letter_exists,
     cover_letter_path: cl_rel,
+    all_artifacts_present,
   });
 };
 

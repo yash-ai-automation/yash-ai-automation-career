@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initDb, closeDb } from '../../services/db.mjs';
@@ -18,6 +18,19 @@ function fresh() {
   mkdirSync(join(dir, 'ops/runs'), { recursive: true });
   const db = initDb(join(dir, 'ops/work-queue.db'));
   return { db, dir, cleanup: () => { closeDb(db); rmSync(dir, { recursive: true, force: true }); } };
+}
+
+// Lay down fake artifact files so the orchestrator's verifyRunArtifacts gate
+// (added 2026-05-25) considers success-path tests as legitimately complete.
+// Absolute paths (verifyRunArtifacts handles both, upload path resolves vs cwd).
+function mkArtifacts(dir, { jd = 'jds/yash/x.md', pdf = 'resumes/yash/x.pdf', cl = 'cover-letters/yash/x.pdf' } = {}) {
+  mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+  mkdirSync(join(dir, 'resumes/yash'), { recursive: true });
+  mkdirSync(join(dir, 'cover-letters/yash'), { recursive: true });
+  writeFileSync(join(dir, jd), '# fake jd\n');
+  writeFileSync(join(dir, pdf), '%PDF-1.4 fake');
+  writeFileSync(join(dir, cl), '%PDF-1.4 fake CL');
+  return { jdPath: join(dir, jd), resumePdf: join(dir, pdf), coverLetterPdf: join(dir, cl) };
 }
 
 const baseTick = (db, dir, overrides = {}) => ({
@@ -110,8 +123,9 @@ test('tickOnce 3-strike: successful run leaves attempts column alone', async () 
   try {
     const qid = insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
     db.prepare('UPDATE queue SET attempts=2 WHERE id=?').run(qid);
+    const artifacts = mkArtifacts(dir);
     const r = await tickOnce(baseTick(db, dir, {
-      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90 }),
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: () => {},
     }));
     assert.equal(r.action, 'completed_ok');

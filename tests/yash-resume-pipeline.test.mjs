@@ -281,6 +281,69 @@ test('check-duplicate: both exist → exists=true, which=[jd,pdf]', async () => 
   }
 });
 
+// ── all_artifacts_present: regression test for the 2026-05-25 false-success ─
+// Run #12 produced JD + resume but DIED at cl_gen_start (cover letter never
+// written). Run #13's playbook step 5 saw exists:true (jd+pdf), called
+// mark-skipped, and the orchestrator reported ✅ Score 0/100 — the cover
+// letter was permanently missed. The fix: expose an `all_artifacts_present`
+// boolean so the playbook can route a partial-duplicate to the CL-only path
+// instead of skipping the entire run.
+
+test('check-duplicate: jd+pdf+cl all exist → exists=true, all_artifacts_present=true', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-cl-all-'));
+  await mkdirTest(join(dir, 'jds/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'cover-letters/yash'), { recursive: true });
+  await writeFileTest(join(dir, 'jds/yash/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md'), 'x');
+  await writeFileTest(join(dir, 'resumes/yash/AcmeInc_Engineer_Yash_Anghan_Resume_2026-05-07.pdf'), 'x');
+  await writeFileTest(join(dir, 'cover-letters/yash/AcmeInc_Engineer_Yash_Anghan_Cover_Letter_2026-05-07.pdf'), 'x');
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate', '--company-slug', 'AcmeInc', '--role-slug', 'Engineer', '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, true);
+    assert.equal(obj.cover_letter_exists, true);
+    assert.equal(obj.all_artifacts_present, true,
+      'all_artifacts_present must be true when jd+pdf+cl all exist (legitimate mark-skipped case)');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('check-duplicate: jd+pdf exist but cl missing → exists=true, all_artifacts_present=FALSE (the bug case)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-cl-missing-'));
+  await mkdirTest(join(dir, 'jds/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'cover-letters/yash'), { recursive: true });
+  await writeFileTest(join(dir, 'jds/yash/JD_AcmeInc_Engineer_Yash_Anghan_2026-05-07.md'), 'x');
+  await writeFileTest(join(dir, 'resumes/yash/AcmeInc_Engineer_Yash_Anghan_Resume_2026-05-07.pdf'), 'x');
+  // cover letter NOT written — exact run-12 state
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate', '--company-slug', 'AcmeInc', '--role-slug', 'Engineer', '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, true, 'jd+pdf are present so exists still true (backward compat)');
+    assert.equal(obj.cover_letter_exists, false);
+    assert.equal(obj.all_artifacts_present, false,
+      'all_artifacts_present MUST be false when cover letter is missing — this is what the playbook keys on to skip CL-only path');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('check-duplicate: no files at all → all_artifacts_present=false (consistent with exists=false)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-none-'));
+  await mkdirTest(join(dir, 'jds/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'resumes/yash'), { recursive: true });
+  await mkdirTest(join(dir, 'cover-letters/yash'), { recursive: true });
+  try {
+    const { stdout } = await execFileP('node', [SCRIPT,
+      'check-duplicate', '--company-slug', 'AcmeInc', '--role-slug', 'Engineer', '--date', '2026-05-07',
+    ], { cwd: dir });
+    const obj = JSON.parse(stdout.trim());
+    assert.equal(obj.exists, false);
+    assert.equal(obj.all_artifacts_present, false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('check-duplicate: PDF-only exists → exists=true, which=[pdf]', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
   await mkdirTest(join(dir, 'jds/yash'), { recursive: true });

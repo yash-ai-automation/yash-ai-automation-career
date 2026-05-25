@@ -16,6 +16,22 @@ function fresh() {
   return { db, dir, cleanup: () => { closeDb(db); rmSync(dir, { recursive: true, force: true }); } };
 }
 
+/**
+ * Lay down fake artifact files matching the paths returned by a fake spawn so
+ * the orchestrator's `verifyRunArtifacts` gate (added 2026-05-25) considers
+ * the run complete. Returns ABSOLUTE paths because the PDF-upload existsSync
+ * check in tickOnce() resolves against process.cwd(), not projectRoot.
+ */
+function mkArtifacts(dir, { jd = 'jds/yash/x.md', pdf = 'resumes/yash/x.pdf', cl = 'cover-letters/yash/x.pdf' } = {}) {
+  mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+  mkdirSync(join(dir, 'resumes/yash'), { recursive: true });
+  mkdirSync(join(dir, 'cover-letters/yash'), { recursive: true });
+  writeFileSync(join(dir, jd), '# fake jd\n');
+  writeFileSync(join(dir, pdf), '%PDF-1.4 fake');
+  writeFileSync(join(dir, cl), '%PDF-1.4 fake CL');
+  return { jdPath: join(dir, jd), resumePdf: join(dir, pdf), coverLetterPdf: join(dir, cl) };
+}
+
 test('tickOnce: idle when queue empty', async () => {
   const { db, dir, cleanup } = fresh();
   try {
@@ -37,13 +53,14 @@ test('tickOnce: spawns when queued, returns ok on clean exit', async () => {
   const { db, dir, cleanup } = fresh();
   try {
     insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const artifacts = mkArtifacts(dir);
     const notifications = [];
     const r = await tickOnce({
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
       claudeModel: 'claude-opus-4-7',
-      spawn: async ({ url, runId }) => ({ exitCode: 0, durationMs: 1000, slug: 'Acme_Job', score: 91, jdPath: 'jds/yash/x.md', resumePdf: 'resumes/yash/x.pdf', coverLetterPdf: 'cover-letters/yash/x.pdf' }),
+      spawn: async ({ url, runId }) => ({ exitCode: 0, durationMs: 1000, slug: 'Acme_Job', score: 91, ...artifacts }),
       notify: (msg) => notifications.push(msg),
     });
     assert.equal(r.action, 'completed_ok');
@@ -172,18 +189,14 @@ test('tickOnce: shutdown_interrupt does NOT fire when user cancelled the run (ca
 test('tickOnce: skips PDF upload when notifyChatId is 0 (test default), still marks done', async () => {
   const { db, dir, cleanup } = fresh();
   try {
-    // Write a fake PDF on disk so existsSync() returns true.
-    const { writeFileSync, mkdirSync } = await import('node:fs');
-    mkdirSync(`${dir}/resumes/yash`, { recursive: true });
-    const pdfPath = `${dir}/resumes/yash/test.pdf`;
-    writeFileSync(pdfPath, '%PDF-1.4 fake');
+    const artifacts = mkArtifacts(dir);
     insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
     const r = await tickOnce({
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
       claudeModel: 'claude-opus-4-7',
-      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, resumePdf: pdfPath }),
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: () => {},
       // Default notifyChatId=0 → upload should be skipped, no telegram-client import attempted.
     });
@@ -196,10 +209,7 @@ test('tickOnce: skips PDF upload when notifyChatId is 0 (test default), still ma
 test('tickOnce: when notifyChatId is set, sendDocument receives it (regression for 2026-05-24 prod bug)', async () => {
   const { db, dir, cleanup } = fresh();
   try {
-    const { writeFileSync, mkdirSync } = await import('node:fs');
-    mkdirSync(`${dir}/resumes/yash`, { recursive: true });
-    const pdfPath = `${dir}/resumes/yash/test.pdf`;
-    writeFileSync(pdfPath, '%PDF-1.4 fake');
+    const artifacts = mkArtifacts(dir);
 
     // Stand up a mock Telegram server so we can observe the request body.
     const http = await import('node:http');
@@ -226,7 +236,7 @@ test('tickOnce: when notifyChatId is set, sendDocument receives it (regression f
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
       claudeModel: 'claude-opus-4-7',
-      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, resumePdf: pdfPath }),
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: () => {},
       notifyChatId: 999000111,  // fake numeric chatId for test (never use a real one — secret scanner flags it as PII).
     });
@@ -248,13 +258,14 @@ test('tickOnce: shutdown_interrupt does NOT fire when spawn exits cleanly (succe
   const { db, dir, cleanup } = fresh();
   try {
     insertQueueRow(db, { url: 'http://acme.com/job', urlHash: 'h1', addedBy: 1 });
+    const artifacts = mkArtifacts(dir);
     const notifications = [];
     const r = await tickOnce({
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
       claudeModel: 'claude-opus-4-7',
-      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90 }),
+      spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: (msg) => notifications.push(msg),
       // Even though shutdown is in progress, success completes normally.
       isShuttingDown: () => true,

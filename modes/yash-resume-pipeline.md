@@ -95,7 +95,12 @@ Repeat until queue empty, 3 consecutive failures, or user interrupts (Ctrl+C):
        --company-slug <c> --role-slug <r> --date <d>
    ```
 
-   If `exists: true` → run `mark-skipped --url <url> --reason "duplicate (jd+pdf already exist)"` and continue.
+   Branch on the response (keyed on `all_artifacts_present` and `cover_letter_exists` — added 2026-05-25 after the run-12/13 false-success incident where a partial duplicate with a missing cover letter was silently mark-skipped as a successful run):
+
+   - **If `all_artifacts_present: true`** (JD + resume + cover-letter all on disk) → run
+     `mark-skipped --url <url> --reason "duplicate (all artifacts already exist)"` and continue.
+   - **If `exists: true` but `cover_letter_exists: false`** (JD + resume exist from a prior failed-at-CL run) → SKIP steps 6, 7, 8 (JD save + resume generation + resume compile) and JUMP directly to step 9 (cover-letter generation). Reuse the existing JD `jd_path` and resume `pdf_path` from the dedup response. At the end, call `mark-processed` with `--cover-letter <cl_path> --cover-letter-status ok` so the new cover letter is recorded.
+   - **Else** → continue to step 6 (full pipeline).
 
 6. **Write JD .md** to `jds/yash/JD_<c>_<r>_Yash_Anghan_<d>.md`:
 
