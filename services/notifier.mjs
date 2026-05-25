@@ -36,6 +36,15 @@ export function formatFailure({ runId, hostname, phase, error }) {
   return clip(`❌ #${runId} ${hostname} failed at ${phase}:\n${clip(error || '', MAX_ERROR_CHARS)}`, MAX_MSG_CHARS);
 }
 
+// Distinct from formatSuccess: a mark-skipped run did NOT produce new artifacts.
+// The 🔁 prefix + explicit "skipped" wording prevents the false-success pattern
+// where Telegram showed "✅ Score 0/100 · role unknown" for a no-op skip (run #13,
+// 2026-05-25 incident).
+export function formatSkipped({ runId, hostname, reason }) {
+  const r = (reason && String(reason).trim()) || 'duplicate';
+  return clip(`🔁 #${runId} ${hostname} skipped\n${r}`, MAX_MSG_CHARS);
+}
+
 export function formatCapReached({ reason, count, limit }) {
   return `⏸️ Cap reached (${reason}: ${count}/${limit}). New URLs will wait.`;
 }
