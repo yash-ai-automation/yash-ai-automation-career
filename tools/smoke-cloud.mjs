@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execSync } from 'node:child_process';
 import { initDb, topHintsByHost } from '../services/db.mjs';
 import { runExporter } from '../services/exporter.mjs';
 
@@ -71,6 +72,21 @@ async function smokePhaseC() {
   }
 }
 
+async function smokePhaseD() {
+  console.log('[smoke D] Running promptfoo eval on one fixture...');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[smoke D] FAIL — ANTHROPIC_API_KEY not set');
+    process.exit(1);
+  }
+  try {
+    execSync('npx promptfoo eval -c tests/promptfoo.yaml --filter-pattern=lever-ml-engineer', { stdio: 'inherit' });
+    console.log('[smoke D] OK');
+  } catch (e) {
+    console.error('[smoke D] FAIL —', e.message);
+    process.exit(2);
+  }
+}
+
 async function main() {
   if (phase === 'A' || phase === 'all') {
     await smokePhaseA();
@@ -81,9 +97,8 @@ async function main() {
   if (phase === 'C' || phase === 'all') {
     await smokePhaseC();
   }
-  if (phase === 'D') {
-    console.error(`[smoke ${phase}] Not yet implemented (added in later phase tasks).`);
-    process.exit(3);
+  if (phase === 'D' || phase === 'all') {
+    await smokePhaseD();
   }
 }
 
