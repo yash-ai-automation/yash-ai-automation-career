@@ -100,3 +100,21 @@ test('readDiskFreeGb parses df output', async () => {
   const fakeDf = "Filesystem      1G-blocks  Used Available Use% Mounted on\n/dev/vda1            40G   38G        2G  95% /\n";
   assert.equal(readDiskFreeGb({ dfOutput: fakeDf }), 2);
 });
+
+test('runWatchdog dispatches matched rules in correct order', async () => {
+  const { runWatchdog } = await import('../../services/watchdog.mjs');
+  const fakeStream = (async function* () {
+    yield JSON.stringify({ __REALTIME_TIMESTAMP: '1748169600000000', _SYSTEMD_USER_UNIT: 'pipeline-orchestrator.service', MESSAGE: 'Out of memory: Killed process' });
+  })();
+  const execCalls = [];
+  await runWatchdog({
+    lineSource: fakeStream,
+    db: null,
+    notifier: { tg: async () => {} },
+    exec: (c) => execCalls.push(c),
+    diskCheckIntervalMs: 999999,
+    heartbeatCheckIntervalMs: 999999,
+    maxEvents: 1
+  });
+  assert.ok(execCalls.some(c => /rm.*yash-pipeline/.test(c)));
+});

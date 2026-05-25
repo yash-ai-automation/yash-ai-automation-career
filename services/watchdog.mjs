@@ -1,4 +1,4 @@
-import { execSync as defaultExec } from 'node:child_process';
+import { execSync as defaultExec, spawn } from 'node:child_process';
 import { createLogger } from './logger.mjs';
 
 const log = createLogger({ service: 'watchdog' });
@@ -131,4 +131,94 @@ export async function remediateDiskPause({ db, notifier } = {}) {
     });
   }
   if (notifier) await notifier.tg('🚨 Disk free <1 GB. Queue paused. Run /unpause after clean-up.');
+}
+
+// ── journalctl subprocess stream ───────────────────────────────────────────────
+
+async function* journaldStream() {
+  const proc = spawn('journalctl', ['--user', '-f', '-u', 'pipeline-orchestrator', '-u', 'telegram-listener', '-o', 'json'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  let buf = '';
+  for await (const chunk of proc.stdout) {
+    buf += chunk.toString();
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i);
+      buf = buf.slice(i + 1);
+      if (line) yield line;
+    }
+  }
+}
+
+// ── Main orchestration loop ────────────────────────────────────────────────────
+
+export async function runWatchdog(opts = {}) {
+  const {
+    lineSource = journaldStream(),
+    db,
+    notifier,
+    exec = defaultExec,
+    diskCheckIntervalMs = 5 * 60 * 1000,
+    heartbeatCheckIntervalMs = 60 * 1000,
+    maxEvents = Infinity
+  } = opts;
+
+  const recent = []; // ring buffer of recent {message, timestampMs, unit}
+  const KEEP_MS = 60 * 60 * 1000;
+  let lastOrchTs = Date.now();
+  let processed = 0;
+
+  const diskTimer = setInterval(async () => {
+    try {
+      const free = readDiskFreeGb({ exec });
+      if (matchDiskPause({ freeGb: free })) await remediateDiskPause({ db, notifier });
+    } catch {}
+  }, diskCheckIntervalMs);
+  if (diskTimer.unref) diskTimer.unref();
+
+  const hbTimer = setInterval(async () => {
+    if (matchHeartbeatMiss({ lastLogTs: lastOrchTs })) await remediateHeartbeatMiss({ exec, db });
+  }, heartbeatCheckIntervalMs);
+  if (hbTimer.unref) hbTimer.unref();
+
+  try {
+    for await (const line of lineSource) {
+      const evt = parseJournaldLine(line);
+      if (!evt) continue;
+      recent.push(evt);
+      while (recent.length && recent[0].timestampMs < Date.now() - KEEP_MS) recent.shift();
+      if (evt.unit && evt.unit.startsWith('pipeline-orchestrator')) lastOrchTs = evt.timestampMs;
+
+      if (matchOom(evt.message)) await remediateOom({ exec, db });
+      if (matchTectonic(recent)) await remediateTectonic({ db });
+      const hc = matchHostCooldown(recent);
+      if (hc) await remediateHostCooldown({ host: hc.host, db });
+
+      processed++;
+      if (processed >= maxEvents) break;
+    }
+  } finally {
+    clearInterval(diskTimer);
+    clearInterval(hbTimer);
+  }
+}
+
+// ── CLI entry point ────────────────────────────────────────────────────────────
+
+export async function main() {
+  if (process.env.FEATURE_WATCHDOG !== '1') {
+    log.info({ event: 'watchdog_disabled' }, 'FEATURE_WATCHDOG not set; exiting');
+    process.exit(0);
+  }
+  const { initDb } = await import('./db.mjs');
+  const notifier = await import('./notifier.mjs');
+  const db = initDb(process.env.DB_PATH || 'ops/work-queue.db');
+  try {
+    await runWatchdog({ db, notifier });
+  } finally {
+    db.close();
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(e => { console.error(e); process.exit(1); });
 }
