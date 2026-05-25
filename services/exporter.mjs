@@ -25,6 +25,47 @@ export function buildTrace(runRow, events = []) {
   };
 }
 
+import { getCursor, setCursor } from './db.mjs';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+function readEvents(runsDir, runId) {
+  const path = join(runsDir, String(runId), 'events.jsonl');
+  if (!existsSync(path)) return [];
+  try {
+    return readFileSync(path, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
+  } catch {
+    return [];  // malformed → skip events but emit trace anyway
+  }
+}
+
+export async function runExporter({ db, httpClient, host, publicKey, secretKey, batchSize = 50, runsDir }) {
+  const cursor = getCursor(db, 'exporter.last_run_id');
+  let advanced = 0;
+  let lastId = cursor;
+  while (true) {
+    const rows = db.prepare(`
+      SELECT id, url, status,
+             resume_pdf AS pdf_path,
+             git_sha,
+             CASE status WHEN 'done' THEN 0 ELSE 1 END AS exit_code,
+             tokens_in, tokens_out,
+             started_at AS created_at
+      FROM runs
+      WHERE id > ? ORDER BY id LIMIT ?
+    `).all(lastId, batchSize);
+    if (rows.length === 0) break;
+    const batch = rows.map(r => buildTrace(r, readEvents(runsDir, r.id)));
+    const ok = await postBatch({ httpClient, host, publicKey, secretKey }, batch);
+    if (!ok) break;
+    lastId = rows[rows.length - 1].id;
+    setCursor(db, 'exporter.last_run_id', lastId);
+    advanced += rows.length;
+    if (rows.length < batchSize) break;
+  }
+  return { advanced, finalCursor: lastId };
+}
+
 export async function postBatch({ httpClient, host, publicKey, secretKey }, batch) {
   const authHeader = 'Basic ' + Buffer.from(`${publicKey}:${secretKey}`).toString('base64');
   try {

@@ -64,3 +64,104 @@ test('postBatch posts to /api/public/ingestion', async () => {
   await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]);
   assert.ok(capturedUrl.endsWith('/api/public/ingestion'));
 });
+
+import { initDb } from '../../services/db.mjs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function seedDb(n) {
+  const dir = mkdtempSync(join(tmpdir(), 'exporter-test-'));
+  const dbPath = join(dir, 'work.db');
+  const db = initDb(dbPath);
+  const insertQ = db.prepare(`
+    INSERT INTO queue (url, url_hash, added_at, added_by, status)
+    VALUES ('https://x.test/foo', 'h', ?, 1, 'done')
+  `);
+  const insertR = db.prepare(`
+    INSERT INTO runs (id, queue_id, url, status, resume_pdf, git_sha, tokens_in, tokens_out, started_at)
+    VALUES (?, ?, 'https://x.test/foo', 'done', '/p.pdf', 'abc', 100, 50, ?)
+  `);
+  for (let i = 1; i <= n; i++) {
+    const q = insertQ.run('2026-05-25T10:00:00.000Z');
+    insertR.run(i, q.lastInsertRowid, '2026-05-25T10:00:00.000Z');
+  }
+  return { db, dir, cleanup: () => { db.close(); rmSync(dir, { recursive: true, force: true }); } };
+}
+
+test('runExporter advances cursor on 200', async () => {
+  const { runExporter } = await import('../../services/exporter.mjs');
+  const { db, cleanup } = seedDb(10);
+  try {
+    const result = await runExporter({
+      db,
+      httpClient: async () => ({ ok: true, status: 200 }),
+      host: 'https://x.test',
+      publicKey: 'p', secretKey: 's',
+      batchSize: 50,
+      runsDir: '/nonexistent'
+    });
+    assert.equal(result.advanced, 10);
+    const { getCursor } = await import('../../services/db.mjs');
+    assert.equal(getCursor(db, 'exporter.last_run_id'), 10);
+  } finally { cleanup(); }
+});
+
+test('runExporter does NOT advance cursor on 5xx', async () => {
+  const { runExporter } = await import('../../services/exporter.mjs');
+  const { db, cleanup } = seedDb(10);
+  try {
+    const result = await runExporter({
+      db,
+      httpClient: async () => ({ ok: false, status: 503 }),
+      host: 'https://x.test',
+      publicKey: 'p', secretKey: 's',
+      batchSize: 50,
+      runsDir: '/nonexistent'
+    });
+    assert.equal(result.advanced, 0);
+    const { getCursor } = await import('../../services/db.mjs');
+    assert.equal(getCursor(db, 'exporter.last_run_id'), 0);
+  } finally { cleanup(); }
+});
+
+test('runExporter respects batchSize and advances in batches', async () => {
+  const { runExporter } = await import('../../services/exporter.mjs');
+  const { db, cleanup } = seedDb(75);
+  let batchCount = 0;
+  try {
+    await runExporter({
+      db,
+      httpClient: async (_, opts) => {
+        batchCount++;
+        const body = JSON.parse(opts.body);
+        assert.ok(body.batch.length <= 50);
+        return { ok: true, status: 200 };
+      },
+      host: 'https://x.test',
+      publicKey: 'p', secretKey: 's',
+      batchSize: 50,
+      runsDir: '/nonexistent'
+    });
+    assert.equal(batchCount, 2); // 50 + 25
+    const { getCursor } = await import('../../services/db.mjs');
+    assert.equal(getCursor(db, 'exporter.last_run_id'), 75);
+  } finally { cleanup(); }
+});
+
+test('runExporter no-op on empty result set', async () => {
+  const { runExporter } = await import('../../services/exporter.mjs');
+  const { db, cleanup } = seedDb(0);
+  let called = false;
+  try {
+    await runExporter({
+      db,
+      httpClient: async () => { called = true; return { ok: true, status: 200 }; },
+      host: 'https://x.test',
+      publicKey: 'p', secretKey: 's',
+      batchSize: 50,
+      runsDir: '/nonexistent'
+    });
+    assert.equal(called, false);
+  } finally { cleanup(); }
+});
