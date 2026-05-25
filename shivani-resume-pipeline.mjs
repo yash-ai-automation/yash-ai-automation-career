@@ -399,6 +399,66 @@ SUBCOMMANDS['compile-cover-letter'] = async (args) => {
   }
 };
 
+// === checkpoint subcommand (additive — PR 3) ===
+// Valid phases for the _end checkpoints produced by the per-URL loop. Same set
+// the Yash pipeline uses; the autonomous orchestrator's analyzeRebootState()
+// reads these to resume after a SIGTERM. Per Q5: this is an additive entry on
+// SUBCOMMANDS — no existing handler is modified.
+const CHECKPOINT_PHASES = new Set([
+  'jd_fetch_end',
+  'resume_gen_end',
+  'resume_compile_end',
+  'cl_gen_end',
+  'cl_compile_end',
+  'url_end',
+]);
+
+SUBCOMMANDS['checkpoint'] = async (args) => {
+  const runId = args['run-id'];
+  const phase = args['phase'];
+  const urlHash = args['url-hash'];
+  const inputsRaw = args['inputs'];
+
+  if (!runId) fail('checkpoint requires --run-id');
+  if (!phase) fail('checkpoint requires --phase');
+  if (!CHECKPOINT_PHASES.has(phase)) {
+    fail(`invalid phase: "${phase}". must be one of: ${[...CHECKPOINT_PHASES].join(', ')}`);
+  }
+  if (!urlHash) fail('checkpoint requires --url-hash');
+  if (!inputsRaw) fail('checkpoint requires --inputs');
+
+  let inputs;
+  try {
+    inputs = JSON.parse(inputsRaw);
+  } catch (e) {
+    fail(`invalid --inputs: not valid JSON — ${e.message}`);
+  }
+
+  const checkpointDir = process.env.CHECKPOINT_DIR;
+  const dbPath = process.env.WORK_QUEUE_DB;
+  if (!checkpointDir) fail('CHECKPOINT_DIR env var is not set');
+  if (!dbPath) fail('WORK_QUEUE_DB env var is not set');
+
+  // Atomic write: tmp → rename so a SIGTERM mid-write doesn't leave a torn JSON.
+  await mkdir(checkpointDir, { recursive: true });
+  const tmpPath = resolve(checkpointDir, `${urlHash}.json.tmp`);
+  const finalPath = resolve(checkpointDir, `${urlHash}.json`);
+  await writeFile(tmpPath, JSON.stringify(inputs, null, 2), 'utf8');
+  await rename(tmpPath, finalPath);
+
+  // Lazy import to keep cold-start cost low for other subcommands.
+  const { initDb, closeDb } = await import('./services/db.mjs');
+  const { upsertCheckpoint } = await import('./services/queue.mjs');
+  const db = initDb(dbPath);
+  try {
+    upsertCheckpoint(db, { runId: Number(runId), lastPhase: phase, inputsPath: finalPath });
+  } finally {
+    closeDb(db);
+  }
+
+  ok({ phase, inputs_path: finalPath });
+};
+
 // === Dispatcher (CLI mode only) ===
 async function main() {
   const subcommand = process.argv[2];
