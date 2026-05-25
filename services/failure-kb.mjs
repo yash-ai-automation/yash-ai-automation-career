@@ -1,4 +1,7 @@
 import { URL } from 'node:url';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { upsertPattern } from './db.mjs';
 
 function safeHost(url) {
   try { return new URL(url).hostname.toLowerCase(); } catch { return 'unknown'; }
@@ -63,4 +66,26 @@ export function extractSignature(errorText, meta = {}) {
     if (sig.test(errorText)) return sig.extract(errorText, meta);
   }
   return { unknown: true, snippet: errorText.slice(0, 200).replace(/\s+/g, ' ') };
+}
+
+export async function learnFromFailure(db, runId, errorText, { url, reviewDir }) {
+  const sig = extractSignature(errorText, { url });
+  if (sig.unknown) {
+    try {
+      mkdirSync(reviewDir, { recursive: true });
+      writeFileSync(
+        join(reviewDir, `${runId}.json`),
+        JSON.stringify({ run_id: runId, url, snippet: sig.snippet, full_error: errorText.slice(0, 2000) }, null, 2)
+      );
+      return { kind: 'review-queued', snippet: sig.snippet };
+    } catch (e) {
+      return { kind: 'review-queue-failed', error: e.message };
+    }
+  }
+  try {
+    upsertPattern(db, { signature: sig.signature, hint: sig.hint, runId });
+    return { kind: 'learned', signature: sig.signature };
+  } catch (e) {
+    return { kind: 'upsert-failed', error: e.message };
+  }
 }

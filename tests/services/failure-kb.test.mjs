@@ -75,3 +75,51 @@ test('regex catalogue is exported for inspection', async () => {
   assert.ok(Array.isArray(mod.SIGNATURE_PATTERNS));
   assert.equal(mod.SIGNATURE_PATTERNS.length, 6);
 });
+
+import { initDb } from '../../services/db.mjs';
+import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function setup() {
+  const dir = mkdtempSync(join(tmpdir(), 'lkb-test-'));
+  const db = initDb(join(dir, 'work.db'));
+  const reviewDir = join(dir, 'kb-review-queue');
+  return { db, reviewDir, dir, cleanup: () => { db.close(); rmSync(dir, { recursive: true, force: true }); } };
+}
+
+test('learnFromFailure: known signature upserts pattern', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, reviewDir, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 42, 'scrapling fetch failed: 403 Cloudflare', { url: 'https://lever.co/x', reviewDir });
+    assert.equal(r.kind, 'learned');
+    assert.equal(r.signature, 'scrapling:cloudflare:lever.co');
+    const row = db.prepare('SELECT * FROM failure_patterns WHERE signature=?').get(r.signature);
+    assert.equal(row.hits, 1);
+    assert.equal(row.last_run_id, 42);
+  } finally { cleanup(); }
+});
+
+test('learnFromFailure: unknown signature writes review-queue JSON', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, reviewDir, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 99, 'utterly novel error XYZ-123', { url: 'https://x.test', reviewDir });
+    assert.equal(r.kind, 'review-queued');
+    const files = readdirSync(reviewDir);
+    assert.equal(files.length, 1);
+    const body = JSON.parse(readFileSync(join(reviewDir, files[0]), 'utf8'));
+    assert.equal(body.run_id, 99);
+    assert.ok(body.snippet.includes('XYZ-123'));
+  } finally { cleanup(); }
+});
+
+test('learnFromFailure: review-queue write failure does not throw', async () => {
+  const { learnFromFailure } = await import('../../services/failure-kb.mjs');
+  const { db, cleanup } = setup();
+  try {
+    const r = await learnFromFailure(db, 1, 'unknown failure', { url: 'https://x.test', reviewDir: '/etc/forbidden-review-queue' });
+    assert.equal(r.kind, 'review-queue-failed');
+  } finally { cleanup(); }
+});
