@@ -131,3 +131,44 @@ test('Shivani allowlist: /add from allowlisted user enqueues into the (Shivani) 
     assert.ok(replies.some(r => /queued/i.test(r)), 'expected a "queued" confirmation reply');
   } finally { cleanup(); }
 });
+
+// PR-#18 cross-tenant parity: /readd must work for Shivani too, with the
+// [shivani-pipeline] prefix carried by tenantLabel (just like /add reply
+// prefix from PR #16). The runtime tenant/DB invariant is enforced at process
+// boot by assertTenantDbConsistency (PR #16) — this test only checks that
+// when the Shivani listener processes /readd, the row lands in the DB the
+// listener was given, with the correct tenant label.
+test('Shivani allowlist: /readd from allowlisted user re-queues into the (Shivani) DB with [shivani-pipeline] prefix', async () => {
+  const { db, cleanup } = fresh();
+  try {
+    const { insertQueueRow, markQueueDone } = await import('../../services/queue.mjs');
+    const sourceId = insertQueueRow(db, {
+      url: 'https://jobs.example.com/shivani-fullstack-java',
+      urlHash: 'h-shivani-readd',
+      addedBy: SHIVANI_CHAT_ID,
+    });
+    markQueueDone(db, sourceId);
+
+    const replies = [];
+    const r = await handleUpdate({
+      update: makeUpdate({
+        text: `/readd ${sourceId}`,
+        from_id: SHIVANI_CHAT_ID,
+        chat_id: SHIVANI_CHAT_ID,
+        update_id: 99,
+      }),
+      db,
+      allowlist: SHIVANI_ALLOW,
+      notifyChatId: SHIVANI_CHAT_ID,
+      send: (msg) => replies.push(msg),
+      tenantLabel: 'shivani-pipeline',
+    });
+    assert.equal(r.cmd, 'readd');
+    assert.ok(r.newQueueId > sourceId, 'must allocate a new id in the Shivani DB');
+    assert.match(replies[0], /\[shivani-pipeline\]/, 'reply must carry the Shivani tenant prefix');
+    assert.match(replies[0], /🔁/);
+    const newRow = db.prepare('SELECT status, url FROM queue WHERE id=?').get(r.newQueueId);
+    assert.equal(newRow.status, 'queued');
+    assert.equal(newRow.url, 'https://jobs.example.com/shivani-fullstack-java');
+  } finally { cleanup(); }
+});

@@ -22,7 +22,7 @@ import crypto from 'node:crypto';
 import { join, isAbsolute, resolve } from 'node:path';
 import { validateUrl } from './url-validate.mjs';
 import { checkDuplicate } from './dedup.mjs';
-import { insertQueueRow, requestCancel, selectQueueLen, upsertTelegramOffset, selectTelegramOffset } from './queue.mjs';
+import { insertQueueRow, requestCancel, selectQueueLen, upsertTelegramOffset, selectTelegramOffset, readdQueueRow, ReaddError } from './queue.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
 import { createLogger } from './logger.mjs';
 
@@ -211,6 +211,7 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
         '/status           — Show current pipeline status\n' +
         '/queue            — List up to 10 queued URLs\n' +
         '/cancel <id>      — Cancel a queued or running job\n' +
+        '/readd <queue_id> — Re-queue a previously-done URL (bypasses dedup)\n' +
         '/patterns         — List top 10 learned failure patterns\n' +
         '/suppress <sig>   — Suppress a failure pattern by signature\n' +
         '/unpause          — Resume processing (clears all paused rows)\n' +
@@ -314,6 +315,46 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
       requestCancel(db, id);
       await send(`🛑 Cancel requested for #${id}; takes effect at next phase boundary.`);
       return { cmd, queueId: id };
+    }
+
+    case 'readd': {
+      // Re-queue a previously-terminal URL. Bypasses the listener-level dedup
+      // (`checkDuplicate`) by inserting a fresh queue row that carries the
+      // source row's url/url_hash/added_by but starts at status=queued with
+      // attempts=0. Source row is never mutated — audit history preserved.
+      // Validation mirrors /cancel: parseInt strict-positive; reject 0 / -3
+      // / 'abc' / '1.5' with a usage error. parseInt('1.5') returns 1, so we
+      // additionally reject any arg containing a non-digit/sign character.
+      const raw = args.trim();
+      const idMatch = /^[1-9][0-9]*$/.test(raw);
+      const id = parseInt(raw, 10);
+      if (!raw || !idMatch || !Number.isFinite(id) || id <= 0) {
+        await send(`${tag}❌ Usage: /readd <queue_id>`);
+        return { cmd, error: 'invalid_id' };
+      }
+      try {
+        const { newQueueId, hostname } = readdQueueRow(db, id);
+        logger.info({
+          event: 'readd', source_queue_id: id, new_queue_id: newQueueId, url_hostname: hostname,
+        }, 'readd: re-queued terminal row');
+        await send(`${tag}🔁 Re-queued #${id} as #${newQueueId}: ${hostname}`);
+        return { cmd, queueId: id, newQueueId };
+      } catch (e) {
+        if (!(e instanceof ReaddError)) throw e;
+        if (e.code === 'not_found') {
+          await send(`${tag}❌ No queue row #${id}`);
+          return { cmd, error: 'not_found', queueId: id };
+        }
+        if (e.code === 'still_running') {
+          await send(`${tag}❌ Queue #${id} is still running — use /cancel ${id} first`);
+          return { cmd, error: 'still_running', queueId: id };
+        }
+        if (e.code === 'already_queued') {
+          await send(`${tag}ℹ️ Queue #${id} is already queued (position ${e.existingPosition}) — nothing to re-add`);
+          return { cmd, error: 'already_queued', queueId: id };
+        }
+        throw e;
+      }
     }
 
     default: {
