@@ -146,8 +146,27 @@ export async function remediateDiskPause({ db, notifier } = {}) {
 
 // ── journalctl subprocess stream ───────────────────────────────────────────────
 
+// systemd user units the watchdog follows. Yash units are always included so
+// existing single-tenant deploys keep working byte-identically; Shivani units
+// are tailed too so a single watchdog instance covers both tenants. journalctl
+// silently drops names that don't resolve to active units, so listing all four
+// is safe even on a Yash-only VPS.
+export const WATCHDOG_UNITS = Object.freeze([
+  'pipeline-orchestrator',
+  'telegram-listener',
+  'shivani-pipeline-orchestrator',
+  'shivani-telegram-listener',
+]);
+
+export function buildJournalctlArgs(units = WATCHDOG_UNITS) {
+  const args = ['--user', '-f'];
+  for (const u of units) args.push('-u', u);
+  args.push('-o', 'json');
+  return args;
+}
+
 async function* journaldStream() {
-  const proc = spawn('journalctl', ['--user', '-f', '-u', 'pipeline-orchestrator', '-u', 'telegram-listener', '-o', 'json'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const proc = spawn('journalctl', buildJournalctlArgs(), { stdio: ['ignore', 'pipe', 'inherit'] });
   let buf = '';
   for await (const chunk of proc.stdout) {
     buf += chunk.toString();
