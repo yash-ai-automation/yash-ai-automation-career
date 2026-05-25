@@ -16,3 +16,25 @@ test('parseJournaldLine extracts MESSAGE + unit + timestamp', async () => {
   assert.match(evt.message, /Out of memory/);
   assert.ok(evt.timestampMs > 0);
 });
+
+test('OOM rule matches "Out of memory: Killed"', async () => {
+  const { matchOom } = await import('../../services/watchdog.mjs');
+  assert.ok(matchOom('Out of memory: Killed process 1234'));
+  assert.equal(matchOom('regular log line'), false);
+});
+
+test('remediateOom clears /tmp/yash-pipeline-* (or no-op if empty)', async () => {
+  const { remediateOom } = await import('../../services/watchdog.mjs');
+  const calls = [];
+  await remediateOom({ exec: (cmd) => calls.push(cmd) });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /rm.*yash-pipeline/);
+});
+
+test('OOM remediation is idempotent', async () => {
+  const { remediateOom } = await import('../../services/watchdog.mjs');
+  const calls = [];
+  await remediateOom({ exec: (c) => calls.push(c) });
+  await remediateOom({ exec: (c) => calls.push(c) });
+  assert.equal(calls.length, 2);
+});
