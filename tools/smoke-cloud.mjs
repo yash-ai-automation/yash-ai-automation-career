@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { initDb } from '../services/db.mjs';
+import { initDb, topHintsByHost } from '../services/db.mjs';
 import { runExporter } from '../services/exporter.mjs';
 
 const args = process.argv.slice(2);
@@ -39,10 +39,26 @@ async function smokePhaseA() {
   db.close();
 }
 
+async function smokePhaseB() {
+  console.log('[smoke B] Verifying failure_patterns table is queryable...');
+  const dbPath = process.env.DB_PATH || 'ops/work-queue.db';
+  const db = initDb(dbPath);
+  try {
+    const cols = db.prepare("PRAGMA table_info(failure_patterns)").all();
+    if (cols.length === 0) { console.error('[smoke B] FAIL — failure_patterns table missing'); process.exit(2); }
+    const hints = topHintsByHost(db, 'lever.co', 3);
+    console.log(`[smoke B] OK — table present (${cols.length} cols), returned ${hints.length} hint(s) for lever.co`);
+  } finally { db.close(); }
+}
+
 async function main() {
   if (phase === 'A' || phase === 'all') {
     await smokePhaseA();
-  } else if (phase === 'B' || phase === 'C' || phase === 'D') {
+  }
+  if (phase === 'B' || phase === 'all') {
+    await smokePhaseB();
+  }
+  if (phase === 'C' || phase === 'D') {
     console.error(`[smoke ${phase}] Not yet implemented (added in later phase tasks).`);
     process.exit(3);
   }
