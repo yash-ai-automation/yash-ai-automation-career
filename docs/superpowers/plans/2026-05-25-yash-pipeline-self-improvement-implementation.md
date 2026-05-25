@@ -3741,10 +3741,17 @@ When CI green, request review.
 
 ## Execution handoff
 
-**Plan complete and saved to `docs/superpowers/plans/2026-05-25-yash-pipeline-self-improvement-implementation.md`. Two execution options:**
+**Execution mode chosen:** Subagent-Driven Development (deferred to a future session).
 
-**1. Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration. Each task gets a clean context; the subagent only sees the spec + plan + the specific task. Best for keeping the main session focused on review rather than coding.
+**To resume:**
+1. Start a fresh Claude Code session.
+2. Paste: `Execute docs/superpowers/plans/2026-05-25-yash-pipeline-self-improvement-implementation.md via superpowers:subagent-driven-development.`
+3. The skill will dispatch one fresh subagent per task starting at PF.1 (worktree creation), review the diff between tasks, and progress through Phase A → B → C → D.
 
-**2. Inline Execution** — Execute tasks in this session using `superpowers:executing-plans`, batch execution with checkpoints for review. Best if you want to watch each step.
+**Why this mode:** Each TDD cycle in this plan is self-contained (write failing test → run → impl → run → commit). A fresh subagent context per task keeps the main reviewer context light and lets each task fail in isolation without polluting downstream work.
 
-**Which approach?**
+**Two execution options are documented for reference:**
+
+**1. Subagent-Driven** *(chosen)* — fresh subagent per task, review between tasks, fast iteration. Best for plans with this many tasks.
+
+**2. Inline Execution** — alternative via `superpowers:executing-plans`, batch execution with checkpoints. Use if the next session wants to watch each step in one continuous context.
