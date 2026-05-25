@@ -165,3 +165,15 @@ test('runExporter no-op on empty result set', async () => {
     assert.equal(called, false);
   } finally { cleanup(); }
 });
+
+test('main() exits cleanly when FEATURE_EXPORTER=0', async () => {
+  const { main } = await import('../../services/exporter.mjs');
+  const orig = process.env.FEATURE_EXPORTER;
+  process.env.FEATURE_EXPORTER = '0';
+  try {
+    const result = await main({ exitOnDisabled: false });
+    assert.equal(result.disabled, true);
+  } finally {
+    process.env.FEATURE_EXPORTER = orig;
+  }
+});

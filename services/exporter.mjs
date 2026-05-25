@@ -25,7 +25,8 @@ export function buildTrace(runRow, events = []) {
   };
 }
 
-import { getCursor, setCursor } from './db.mjs';
+import { getCursor, setCursor, initDb } from './db.mjs';
+import { createLogger } from './logger.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -85,4 +86,43 @@ export async function postBatch({ httpClient, host, publicKey, secretKey }, batc
     if (/auth/i.test(e.message)) throw e;
     return false;
   }
+}
+
+export async function main({ exitOnDisabled = true } = {}) {
+  const log = createLogger({ service: 'exporter' });
+  if (process.env.FEATURE_EXPORTER !== '1') {
+    log.info({ event: 'exporter_disabled' }, 'FEATURE_EXPORTER not set; exiting');
+    if (exitOnDisabled) process.exit(0);
+    return { disabled: true };
+  }
+  const required = ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY', 'LANGFUSE_HOST'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) {
+    log.error({ event: 'exporter_env_missing', missing }, 'required env vars missing');
+    process.exit(1);
+  }
+  const dbPath = process.env.DB_PATH || 'ops/work-queue.db';
+  const runsDir = process.env.RUNS_DIR || 'ops/runs';
+  const db = initDb(dbPath);
+  try {
+    const result = await runExporter({
+      db,
+      httpClient: fetch,
+      host: process.env.LANGFUSE_HOST,
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+      secretKey: process.env.LANGFUSE_SECRET_KEY,
+      runsDir
+    });
+    log.info({ event: 'exporter_done', ...result }, 'exporter tick complete');
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
 }
