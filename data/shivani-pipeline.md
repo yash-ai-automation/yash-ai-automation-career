@@ -80,5 +80,6 @@
 - [x] https://barringtongrp.ca/careers/senior-full-stack-developer/ | Barrington Group | Senior Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarringtonGroup_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | HelloFresh | Backend Engineer, Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Hellofresh_BackendEngineerConsumer_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://aviva.wd1.myworkdayjobs.com/en-US/External/job/Markham/Senior-Full-stack-Developer_R-169070 | Aviva | Sr Full stack Developer - Java, Spring Boot | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Aviva_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en | Societe Generale | Senior Developer Fullstack (Java/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/SocieteGenerale_SeniorDeveloperFullstack_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 
 
