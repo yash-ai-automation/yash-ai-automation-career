@@ -38,3 +38,19 @@ test('OOM remediation is idempotent', async () => {
   await remediateOom({ exec: (c) => calls.push(c) });
   assert.equal(calls.length, 2);
 });
+
+test('tectonic rule matches "tectonic exit" + "File ... not found" within 30s', async () => {
+  const { matchTectonic } = await import('../../services/watchdog.mjs');
+  assert.ok(matchTectonic(
+    [{ message: 'tectonic: exit 1', timestampMs: 1748169600000 },
+     { message: "LaTeX Error: File `foo.sty' not found", timestampMs: 1748169605000 }]
+  ));
+});
+
+test('tectonic rule does NOT match when entries are >30s apart', async () => {
+  const { matchTectonic } = await import('../../services/watchdog.mjs');
+  assert.equal(matchTectonic(
+    [{ message: 'tectonic: exit 1', timestampMs: 1748169600000 },
+     { message: "LaTeX Error: File `foo.sty' not found", timestampMs: 1748169700000 }]
+  ), false);
+});

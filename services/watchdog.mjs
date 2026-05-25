@@ -34,3 +34,26 @@ export async function remediateOom({ exec = defaultExec, db, runId = null } = {}
   }
   log.info({ event: 'watchdog_oom_remediated' }, 'OOM remediated');
 }
+
+// ── Rule 2/5: tectonic missing-file ───────────────────────────────────────────
+
+export function matchTectonic(events) {
+  const exits = events.filter(e => /tectonic.*exit/i.test(e.message));
+  const missing = events.filter(e => /latex error.*file .* not found/i.test(e.message));
+  for (const a of exits) for (const b of missing) {
+    if (Math.abs(a.timestampMs - b.timestampMs) <= 30_000) return true;
+  }
+  return false;
+}
+
+export async function remediateTectonic({ db, runId } = {}) {
+  if (db) {
+    const { upsertPattern } = await import('./db.mjs');
+    upsertPattern(db, {
+      signature: 'watchdog:tectonic-missing-file',
+      hint: 'tectonic missing-file detected; re-run with --keep-logs to capture cache state.',
+      runId: runId ?? 0
+    });
+  }
+  log.info({ event: 'watchdog_tectonic_remediated' }, 'tectonic missing-file remediated');
+}
