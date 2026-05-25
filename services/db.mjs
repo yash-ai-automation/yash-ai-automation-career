@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS queue (
   status          TEXT    NOT NULL DEFAULT 'queued',
   attempts        INTEGER NOT NULL DEFAULT 0,
   cancel_requested INTEGER NOT NULL DEFAULT 0,
+  paused          INTEGER NOT NULL DEFAULT 0,
   assigned_at     TEXT,
   completed_at    TEXT,
   CHECK (status IN ('queued','running','done','failed','cancelled','dedup_skipped'))
@@ -82,6 +83,11 @@ CREATE INDEX IF NOT EXISTS failure_patterns_recent ON failure_patterns(last_seen
 export function initDb(path) {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Idempotent migration: add paused column to existing DBs
+  const hasPaused = db.prepare('PRAGMA table_info(queue)').all().some(c => c.name === 'paused');
+  if (!hasPaused) {
+    db.exec('ALTER TABLE queue ADD COLUMN paused INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 

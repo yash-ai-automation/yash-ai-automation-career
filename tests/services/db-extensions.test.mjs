@@ -120,3 +120,16 @@ test('topHintsByHost cap LIMIT 3 default, configurable', async () => {
     db.close();
   } finally { cleanup(); }
 });
+
+test('queue paused column defaults to 0 and is added idempotently', () => {
+  const { path, cleanup } = tmpDb();
+  try {
+    const db1 = initDb(path); db1.close();
+    const db2 = initDb(path);
+    const cols = db2.prepare("PRAGMA table_info(queue)").all();
+    const paused = cols.find(c => c.name === 'paused');
+    assert.ok(paused);
+    assert.equal(paused.dflt_value, '0');
+    db2.close();
+  } finally { cleanup(); }
+});
