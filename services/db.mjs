@@ -61,6 +61,11 @@ CREATE TABLE IF NOT EXISTS checkpoints (
   inputs_path TEXT NOT NULL,
   updated_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS exporter_state (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 export function initDb(path) {
@@ -77,4 +82,16 @@ export function integrityCheck(db) {
 
 export function closeDb(db) {
   db.close();
+}
+
+export function getCursor(db, key) {
+  const row = db.prepare('SELECT value FROM exporter_state WHERE key = ?').get(key);
+  return row ? Number(row.value) : 0;
+}
+
+export function setCursor(db, key, value) {
+  db.prepare(`
+    INSERT INTO exporter_state(key, value) VALUES(?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, String(value));
 }

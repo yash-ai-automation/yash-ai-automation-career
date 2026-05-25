@@ -15,7 +15,7 @@ test('initDb creates schema and returns a connection', () => {
   try {
     const db = initDb(path);
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r => r.name);
-    assert.deepEqual(tables.sort(), ['checkpoints', 'queue', 'runs', 'telegram_state']);
+    assert.deepEqual(tables.sort(), ['checkpoints', 'exporter_state', 'queue', 'runs', 'telegram_state']);
     closeDb(db);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
