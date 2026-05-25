@@ -127,8 +127,9 @@ export function upsertPattern(db, { signature, hint, runId }) {
 
 export function topHintsByHost(db, host, limit = 3) {
   // Match on full host (e.g. 'lever.co') OR on host prefix (e.g. 'lever' from 'lever.co')
-  // so that signatures like 'lever:cloudflare' are found when host='lever.co'
-  const escapeFn = s => s.replace(/[%_]/g, '\\$&');
+  // so that signatures like 'lever:cloudflare' are found when host='lever.co'.
+  // Escape SQL LIKE wildcards %, _, AND the escape char \ itself.
+  const escapeFn = s => s.replace(/[%_\\]/g, '\\$&');
   const escapedHost = escapeFn(host);
   const prefix = host.split('.')[0];
   const escapedPrefix = escapeFn(prefix);
