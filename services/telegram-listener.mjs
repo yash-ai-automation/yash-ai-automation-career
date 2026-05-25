@@ -87,6 +87,19 @@ export function handleSuppress(db, signature) {
   return `✅ Suppressed \`${signature}\`. Future runs won't inject its hint.`;
 }
 
+// ── handleUnpause ─────────────────────────────────────────────────────────────
+
+/**
+ * Pure helper: clear paused=1 on all queue rows, resuming processing.
+ * Returns a user-facing reply string (never throws).
+ * @param {import('better-sqlite3').Database} db
+ * @returns {string}
+ */
+export function handleUnpause(db) {
+  const r = db.prepare('UPDATE queue SET paused=0 WHERE paused=1').run();
+  return `✅ Queue resumed; ${r.changes} row(s) unpaused.`;
+}
+
 export async function handleUpdate({ update, db, allowlist, notifyChatId, send, logger = defaultLogger }) {
   const message = update.message;
 
@@ -121,6 +134,7 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
         '/cancel <id>      — Cancel a queued or running job\n' +
         '/patterns         — List top 10 learned failure patterns\n' +
         '/suppress <sig>   — Suppress a failure pattern by signature\n' +
+        '/unpause          — Resume processing (clears all paused rows)\n' +
         '/help             — Show this message'
       );
       return { cmd };
@@ -204,6 +218,11 @@ export async function handleUpdate({ update, db, allowlist, notifyChatId, send, 
     case 'suppress': {
       if (!args) { await send('Usage: /suppress <signature>'); return { cmd }; }
       await send(handleSuppress(db, args));
+      return { cmd };
+    }
+
+    case 'unpause': {
+      await send(handleUnpause(db));
       return { cmd };
     }
 

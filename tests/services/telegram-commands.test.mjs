@@ -48,3 +48,18 @@ test('/suppress unknown signature returns error reply', async () => {
     assert.match(reply, /not found|no such/i);
   } finally { cleanup(); }
 });
+
+test('/unpause clears paused=1 on queue rows', async () => {
+  const { handleUnpause } = await import('../../services/telegram-listener.mjs');
+  const { db, cleanup } = setup();
+  try {
+    // Insert with paused=1 (full row to satisfy NOT NULL columns)
+    db.prepare(`INSERT INTO queue (url, url_hash, added_at, added_by, status, paused) VALUES ('https://x.test', 'h1', ?, 1, 'queued', 1)`).run('2026-05-25T10:00:00.000Z');
+    db.prepare(`INSERT INTO queue (url, url_hash, added_at, added_by, status, paused) VALUES ('https://y.test', 'h2', ?, 1, 'queued', 1)`).run('2026-05-25T10:00:00.000Z');
+    const reply = handleUnpause(db);
+    const n = db.prepare("SELECT count(*) c FROM queue WHERE paused=0").get().c;
+    assert.equal(n, 2);
+    assert.match(reply, /resumed/i);
+    assert.match(reply, /2/);
+  } finally { cleanup(); }
+});
