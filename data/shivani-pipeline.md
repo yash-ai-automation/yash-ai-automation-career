@@ -1,8 +1,5 @@
 ## Pendientes
 
-/add https://jobs.citi.com/job/-/-/287/94689637440?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
-
-/add https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin
 
 /add https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
 
@@ -83,3 +80,5 @@
 - [x] https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en | Societe Generale | Senior Developer Fullstack (Java/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/SocieteGenerale_SeniorDeveloperFullstack_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 
 
+Don't talk. 
+- [x] https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic | City of Toronto | Senior Technical Support Specialist 1 | JD ✅ | Resume ✅ | Score 82/100 | CL ✅ | cover-letters/shivani/CityOfToronto_SeniorTechnicalSupportSpecialist1_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
