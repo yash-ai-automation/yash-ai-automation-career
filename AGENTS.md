@@ -387,6 +387,21 @@ Write one TSV file per evaluation to `batch/tracker-additions/{num}-{company-slu
 6. Normalize statuses: `node normalize-statuses.mjs`
 7. Dedup: `node dedup-tracker.mjs`
 
+### Queue Auto-Commit (yash + shivani pipelines)
+
+`yash-resume-pipeline.mjs` and `shivani-resume-pipeline.mjs` auto-commit `data/{yash,shivani}-pipeline.md` after every `mark-processed`, `mark-failed`, and `mark-skipped` so a future `git reset --hard` cannot wipe queue progress. Behavior:
+- Silently no-op if outside a git repo, if git is not installed, or if the file is unchanged.
+- Set `SKIP_QUEUE_AUTO_COMMIT=1` to bypass (tests use this).
+- Commits are formatted `queue(yash|shivani): <op> <identifier>`. Use `git log --oneline --grep '^queue('` to audit.
+
+After cloning the repo, install the project-local `safe-reset` alias to prevent the original data-loss class:
+
+```bash
+git config --local alias.safe-reset '!f() { echo "=== Working tree status ==="; git status --short; if [ -z "$(git status --porcelain)" ]; then echo "(clean)"; git reset --hard "$@"; else echo; read -p "Working tree has uncommitted changes. Continue with reset --hard? [y/N] " a && [ "$a" = "y" ] && git reset --hard "$@" || echo "Aborted (use git stash first if you want to preserve changes)."; fi; }; f'
+```
+
+Use `git safe-reset origin/main` instead of `git reset --hard origin/main`. Background: 2026-05-25 incident (`docs/superpowers/audits/2026-05-25-pendientes-data-loss-rca.md`).
+
 ### Canonical States (applications.md)
 
 **Source of truth:** `templates/states.yml`

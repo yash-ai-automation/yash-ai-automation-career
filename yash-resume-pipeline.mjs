@@ -161,6 +161,25 @@ async function writePipelineAtomic(content) {
   }
 }
 
+// Auto-commit the queue file after a mutation so a future `git reset --hard`
+// cannot wipe queue progress. Silently no-op outside a git repo or when
+// SKIP_QUEUE_AUTO_COMMIT=1 (tests). Never throws — pipeline progress is
+// independent of git state.
+async function commitQueueAfterMutation(operation, identifier) {
+  if (process.env.SKIP_QUEUE_AUTO_COMMIT === '1') return;
+  const path = pipelinePath();
+  try {
+    await execFileP('git', ['rev-parse', '--git-dir'], { cwd: projectRoot() });
+    const { stdout: diffStat } = await execFileP('git', ['diff', '--shortstat', '--', path], { cwd: projectRoot() });
+    if (!diffStat.trim()) return;
+    const shortId = String(identifier || '').slice(0, 80).replace(/[\r\n]/g, ' ');
+    await execFileP('git', ['add', '--', path], { cwd: projectRoot() });
+    await execFileP('git', ['commit', '-m', `queue(yash): ${operation} ${shortId}`, '--no-verify', '--', path], { cwd: projectRoot() });
+  } catch {
+    // Silent: not a git repo, hook blocked, no git installed, etc.
+  }
+}
+
 // Find the section header line index; -1 if not found.
 function findSectionStart(lines, sectionName) {
   return lines.findIndex((l) => l.trim() === `## ${sectionName}`);
@@ -267,6 +286,7 @@ SUBCOMMANDS['mark-processed'] = async (args) => {
   }
   const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
+  await commitQueueAfterMutation('processed', `${company} / ${role}`);
   ok({});
 };
 
@@ -280,6 +300,7 @@ SUBCOMMANDS['mark-failed'] = async (args) => {
   const newLine = `- [!] ${url} — reason: ${sanitizeReason(reason)}`;
   const updated = insertAtSectionEnd(cleaned, pendientesIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
+  await commitQueueAfterMutation('failed', url);
   ok({});
 };
 
@@ -293,6 +314,7 @@ SUBCOMMANDS['mark-skipped'] = async (args) => {
   const newLine = `- [~] ${url} — skipped: ${sanitizeReason(reason)}`;
   const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
+  await commitQueueAfterMutation('skipped', url);
   ok({});
 };
 
