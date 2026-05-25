@@ -205,6 +205,29 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     exit_code: result.exitCode,
     error: result.error || '',
   }, 'run failed');
+  if (process.env.FEATURE_FAILURE_KB === '1') {
+    try {
+      const logPath = join(projectRoot, 'ops/runs', String(runId), 'claude.log');
+      let errorText = result.error || '';
+      if (existsSync(logPath)) {
+        const full = readFileSync(logPath, 'utf8');
+        errorText = full.slice(-4096); // last 4 KB of claude.log
+      }
+      const reviewDir = join(projectRoot, 'ops/kb-review-queue');
+      const { learnFromFailure } = await import('./failure-kb.mjs');
+      const learnResult = await learnFromFailure(db, runId, errorText, { url: next.url, reviewDir });
+      runLog.info({
+        event: 'failure_kb_result', kind: learnResult.kind, signature: learnResult.signature
+      }, 'learnFromFailure complete');
+      if (learnResult.kind === 'review-queued') {
+        let host = '(unknown)';
+        try { host = new URL(next.url).hostname; } catch {}
+        notify(`⚠️ New fault signature observed at ${host}\nSnippet: ${learnResult.snippet}\nReview ops/kb-review-queue/${runId}.json`);
+      }
+    } catch (e) {
+      runLog.warn({ event: 'failure_kb_threw', err: e.message }, 'learnFromFailure threw; continuing');
+    }
+  }
   notify(formatFailure({
     runId, hostname: hostnameOf(next.url),
     phase: result.failedPhase || 'unknown', error: result.error || '',
