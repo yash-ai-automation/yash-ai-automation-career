@@ -28,6 +28,21 @@ import { createLogger } from './logger.mjs';
 
 const defaultLogger = createLogger({ service: 'pipeline-orchestrator' });
 
+// ── Healthchecks.io heartbeat ────────────────────────────────────────────────
+// Opt-in: set HEALTHCHECK_PING_URL to a Healthchecks.io ping URL.
+// When env var is missing, returns a no-op stop function.
+// Network errors are swallowed silently so the daemon never crashes on a
+// transient outage. The setInterval is unref()'d so tests exit cleanly.
+export function startHeartbeat({ httpClient = fetch, intervalMs = 60_000 } = {}) {
+  if (!process.env.HEALTHCHECK_PING_URL) return () => {};
+  const url = process.env.HEALTHCHECK_PING_URL;
+  const handle = setInterval(() => {
+    httpClient(url).catch(() => {});
+  }, intervalMs);
+  if (handle.unref) handle.unref();
+  return () => clearInterval(handle);
+}
+
 const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
 const PER_URL_TIMEOUT_MS = 20 * 60 * 1000;   // 20 min per Q3 default
@@ -524,6 +539,13 @@ async function main() {
   defaultLogger.info({ event: 'bot_online', queued: queuedAtBoot, claude_model: claudeModel }, 'orchestrator online');
   await notify(`✅ Bot online · queue: ${queuedAtBoot} waiting · git ${shortSha}`);
 
+  // ── Healthchecks.io heartbeat (opt-in) ───────────────────────────────────
+  let stopHeartbeat = () => {};
+  if (process.env.FEATURE_WATCHDOG === '1') {
+    stopHeartbeat = startHeartbeat();
+    defaultLogger.info({ event: 'heartbeat_started' }, 'Healthchecks heartbeat ping started');
+  }
+
   // ── graceful-shutdown state ──────────────────────────────────────────────
   // liveRun tracks the in-flight URL so the signal handler can SIGTERM the
   // child + so the post-tick re-queue logic knows which row to reset.
@@ -644,6 +666,7 @@ async function main() {
   // ── drain + exit ─────────────────────────────────────────────────────────
   await notifyStopping('orchestrator shutdown');
   stopWatchdog();
+  stopHeartbeat();
   try { closeDb(db); } catch (e) { defaultLogger.warn({ event: 'closedb_failed', err: e }, 'closeDb threw'); }
   defaultLogger.info({ event: 'daemon_exit', exit_code: state.exitCode }, 'orchestrator exited cleanly');
   process.exit(state.exitCode);
