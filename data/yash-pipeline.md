@@ -1,8 +1,5 @@
 ## Pendientes
 
-/add https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d
-
-/add https://careers.qualcomm.com/careers/job/446717095636?hl=en-US&utm_source=linkedin&domain=qualcomm.com&source=APPLICANT_SOURCE-6-2
 
 ## Procesadas
 - [x] https://mogo.applytojob.com/apply/gOPOa1WL7r/AINative-Full-Stack-Engineer | Orion Digital | AI-Native Full Stack Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ❌
@@ -91,3 +88,4 @@
 - [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | Hellofresh | Backend Engineer Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Hellofresh_BackendEngineerConsumer_Yash_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Senior Java Developer Assistant Vice President | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Citi_SeniorJavaDeveloperAssistantVicePresident_Yash_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://job-boards.greenhouse.io/pcm/jobs/4257446009 | Connor, Clark & Lunn Private Capital Ltd. | AI Solutions Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/ConnorClarkLunnPrivateCapitalLtd_AiSolutionsEngineer_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d | Toronto Transit Commission | Senior Systems Analyst | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/TorontoTransitCommission_SeniorSystemsAnalyst_Yash_Anghan_Cover_Letter_2026-05-25.pdf
