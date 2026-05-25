@@ -213,6 +213,7 @@ Default modes are in `modes/` (English). Additional language-specific modes are 
 | Wants the strict V2.0 resume pipeline (JD extract + tailored PDF only) | `yash-resume-pipeline` |
 | Wants to run Shivani's resume pipeline | `shivani-resume-pipeline` |
 | Wants the 24/7 Telegram-triggered wrapper for yash-resume-pipeline | yash-pipeline-autonomous-agent (see `.claude/skills/yash-pipeline-autonomous-agent/SKILL.md` + `OPERATIONS.md`) |
+| Wants the 24/7 Telegram-triggered wrapper for shivani-resume-pipeline | shivani-pipeline-autonomous-agent (see `.claude/skills/shivani-pipeline-autonomous-agent/SKILL.md` + `OPERATIONS.md` in the same folder) |
 
 ### Yash Resume Pipeline (yash-resume-pipeline)
 

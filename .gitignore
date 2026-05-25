@@ -96,3 +96,12 @@ ops/work-queue.db-shm
 ops/checkpoints/
 ops/runs/
 ops/telegram.env
+
+# Shivani autonomous agent runtime artifacts (2026-05-25)
+# Mirror the Yash patterns above, scoped to ops/shivani/. The agent.env lives at
+# /etc/shivani-pipeline/agent.env (outside the repo) so it doesn't need a rule.
+ops/shivani/work-queue.db
+ops/shivani/work-queue.db-wal
+ops/shivani/work-queue.db-shm
+ops/shivani/checkpoints/
+ops/shivani/runs/

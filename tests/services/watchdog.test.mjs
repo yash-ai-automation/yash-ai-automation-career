@@ -148,6 +148,34 @@ test('readDiskFreeGb parses df output', async () => {
   assert.equal(readDiskFreeGb({ dfOutput: fakeDf }), 2);
 });
 
+test('buildJournalctlArgs follows both Yash and Shivani units (plan §9.5)', async () => {
+  const { buildJournalctlArgs, WATCHDOG_UNITS } = await import('../../services/watchdog.mjs');
+  const args = buildJournalctlArgs();
+  // Args shape: ['--user', '-f', '-u', <u1>, '-u', <u2>, ..., '-o', 'json']
+  assert.equal(args[0], '--user');
+  assert.equal(args[1], '-f');
+  assert.equal(args[args.length - 2], '-o');
+  assert.equal(args[args.length - 1], 'json');
+  // Every WATCHDOG_UNITS member appears prefixed by '-u'.
+  for (const unit of WATCHDOG_UNITS) {
+    const idx = args.indexOf(unit);
+    assert.ok(idx > 0, `expected ${unit} in args, got ${JSON.stringify(args)}`);
+    assert.equal(args[idx - 1], '-u', `each unit must be preceded by -u`);
+  }
+  // Specifically guards the Shivani extension.
+  assert.ok(args.includes('shivani-pipeline-orchestrator'));
+  assert.ok(args.includes('shivani-telegram-listener'));
+  // Yash units must still be present (no regression).
+  assert.ok(args.includes('pipeline-orchestrator'));
+  assert.ok(args.includes('telegram-listener'));
+});
+
+test('buildJournalctlArgs accepts a custom unit list', async () => {
+  const { buildJournalctlArgs } = await import('../../services/watchdog.mjs');
+  const args = buildJournalctlArgs(['only-this']);
+  assert.deepEqual(args, ['--user', '-f', '-u', 'only-this', '-o', 'json']);
+});
+
 test('runWatchdog dispatches matched rules in correct order', async () => {
   const { runWatchdog } = await import('../../services/watchdog.mjs');
   const fakeStream = (async function* () {
