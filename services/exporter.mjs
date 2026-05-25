@@ -24,3 +24,24 @@ export function buildTrace(runRow, events = []) {
     }))
   };
 }
+
+export async function postBatch({ httpClient, host, publicKey, secretKey }, batch) {
+  const authHeader = 'Basic ' + Buffer.from(`${publicKey}:${secretKey}`).toString('base64');
+  try {
+    const res = await httpClient(`${host}/api/public/ingestion`, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ batch })
+    });
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`Langfuse auth failed (status ${res.status})`);
+    }
+    return res.ok;
+  } catch (e) {
+    if (/auth/i.test(e.message)) throw e;
+    return false;
+  }
+}

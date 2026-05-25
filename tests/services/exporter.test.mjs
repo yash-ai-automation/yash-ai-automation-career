@@ -22,3 +22,45 @@ test('buildTrace produces canonical Langfuse trace shape', () => {
   assert.equal(trace.body.input, expected.body.input);
   assert.equal(trace.body.metadata.git_sha, 'abc1234');
 });
+
+test('postBatch returns true on 200', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  const stub = async (url, opts) => ({ ok: true, status: 200 });
+  const result = await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'pk', secretKey: 'sk' }, [{}]);
+  assert.equal(result, true);
+});
+
+test('postBatch returns false on 5xx', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  const stub = async () => ({ ok: false, status: 503 });
+  assert.equal(await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]), false);
+});
+
+test('postBatch returns false on 429 (quota)', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  const stub = async () => ({ ok: false, status: 429 });
+  assert.equal(await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]), false);
+});
+
+test('postBatch throws on 401 (auth)', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  const stub = async () => ({ ok: false, status: 401 });
+  await assert.rejects(
+    () => postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]),
+    /auth/
+  );
+});
+
+test('postBatch returns false on network error', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  const stub = async () => { throw new Error('ENETUNREACH'); };
+  assert.equal(await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]), false);
+});
+
+test('postBatch posts to /api/public/ingestion', async () => {
+  const { postBatch } = await import('../../services/exporter.mjs');
+  let capturedUrl = null;
+  const stub = async (url) => { capturedUrl = url; return { ok: true, status: 200 }; };
+  await postBatch({ httpClient: stub, host: 'https://x.test', publicKey: 'p', secretKey: 's' }, [{}]);
+  assert.ok(capturedUrl.endsWith('/api/public/ingestion'));
+});
