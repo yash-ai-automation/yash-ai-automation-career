@@ -3,7 +3,6 @@
 - [ ] https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
 - [ ] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
 - [ ] https://www.oncoustics.com/careers-post/full-stack
-- [ ] https://barringtongrp.ca/careers/senior-full-stack-developer/
 - [ ] https://www.konrad.com/careers/job/full-stack-developer_6545898003
 - [ ] https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp
 - [ ] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
@@ -58,5 +57,6 @@
 - [x] https://rbr-global.com/about-rbr/careers/#%23job-2603452 | RBR | Senior Software Developer | JD ✅ | Resume ✅ | Score 90/100 | CL ✅ | cover-letters/shivani/Rbr_SeniorSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-23.pdf
 - [x] https://job-boards.greenhouse.io/faire/jobs/8437749002?gh_jid=8437749002 | Faire | Backend Engineer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Faire_BackendEngineer_Shivani_Anghan_Cover_Letter_2026-05-23.pdf
 - [x] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-1713&BRID=1302303&SBDID=1&searchFilled= | CGI | Java/DevOps Analyst-Developer (Intermediate) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_JavaDevopsAnalystDeveloper_Shivani_Anghan_Cover_Letter_2026-05-24.pdf
+- [x] https://barringtongrp.ca/careers/senior-full-stack-developer/ | Barrington Group | Senior Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarringtonGroup_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 
 
