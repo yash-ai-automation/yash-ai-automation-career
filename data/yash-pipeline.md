@@ -1,5 +1,11 @@
 ## Pendientes
 
+- [ ] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
+- [ ] https://www.konrad.com/careers/job/full-stack-developer_6545898003
+- [ ] https://flexspring.bamboohr.com/careers/53
+- [ ] https://www.oncoustics.com/careers-post/full-stack
+- [ ] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location
+- [ ] https://tangentia.catsone.com/careers/9463-General/jobs/16815579-Senior-Full-Stack-Developer-Java-AngularReact
 
 ## Procesadas
 - [x] https://mogo.applytojob.com/apply/gOPOa1WL7r/AINative-Full-Stack-Engineer | Orion Digital | AI-Native Full Stack Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ❌
@@ -94,3 +100,4 @@
 - [x] https://stacktics.freshteam.com/jobs/bDcnp5VpWOHd/ai-engineer-google-cloud | Stacktics | AI Engineer (Google Cloud) | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/yash/Stacktics_AiEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://job-boards.greenhouse.io/embed/job_app?for=affinity&token=7664593003 | Affinity | Senior AI Engineer, AI Platform | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Affinity_SeniorAiEngineerAiPlatform_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://trendmicro.wd3.myworkdayjobs.com/External/job/Ottawa/Applied-AI-ML-Engineer---Ottawa--ON_R0009518 | Trend Micro | Applied AI ML Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/TrendMicro_AppliedAiMlEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://flexspring.bamboohr.com/careers/58 | Flexspring | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Flexspring_JavaDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
