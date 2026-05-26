@@ -68,3 +68,4 @@
 - [x] https://job-boards.greenhouse.io/dialpad/jobs/8407048002 | Dialpad | Software Development Engineer in Test | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Dialpad_SoftwareDevelopmentEngineerInTest_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097 | BlackBerry | Intermediate Applications Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Blackberry_IntermediateApplicationsSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [~] https://www.scispot.com/jobs/full-stack-developer — skipped: duplicate (jd+pdf already exist)
+- [x] https://www.ascensionas.ca/jobs/software-developer | Ascension Automation Solutions | Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/AscensionAutomationSolutions_SoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
