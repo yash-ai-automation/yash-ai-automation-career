@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location
 - [ ] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
 - [ ] https://www.oncoustics.com/careers-post/full-stack
 - [ ] https://www.konrad.com/careers/job/full-stack-developer_6545898003
@@ -66,3 +65,4 @@
 - [x] https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Senior Java Developer - Assistant Vice President | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Citi_SeniorJavaDeveloperAssistantVicePresident_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [~] https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d — skipped: duplicate (jd+pdf already exist)
 - [x] https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a | Snaplii | Sr. Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Snaplii_SrJavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location | Citco | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Citco_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
