@@ -1,6 +1,6 @@
 ## Pendientes
 
-- [ ] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin
+- [ ] https://jobs.ashbyhq.com/wealthsimple/fec01150-fed6-4158-9e94-e59328d79533?utm_source=linkedinpaid
 
 
 
@@ -103,3 +103,4 @@
 - [x] https://www.oncoustics.com/careers-post/full-stack | Oncoustics | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Oncoustics_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location | Citco | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Citco_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://tangentia.catsone.com/careers/9463-General/jobs/16815579-Senior-Full-Stack-Developer-Java-AngularReact | Tangentia | Senior Full Stack Developer (Java + Angular/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Tangentia_SeniorFullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.scispot.com/jobs/full-stack-developer | Scispot | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Scispot_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
