@@ -64,3 +64,4 @@
 - [x] https://www.cofomo.com/en/jobs/84756 | COFOMO | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.cofomo.com/en/jobs/84576 | COFOMO | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk | Barracuda Networks | Senior Software Developer in Test | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarracudaNetworks_SeniorSoftwareDeveloperInTest_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371 | Ford of Canada | Software Developer | JD ✅ | Resume ✅ | Score 85/100 | CL ✅ | cover-letters/shivani/FordOfCanada_SoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
