@@ -1,5 +1,7 @@
 ## Pendientes
 
+- [ ] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin
+
 
 
 ## Procesadas
@@ -98,3 +100,4 @@
 - [x] https://flexspring.bamboohr.com/careers/58 | Flexspring | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Flexspring_JavaDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer | RENAPS | Fullstack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Renaps_FullstackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.konrad.com/careers/job/full-stack-developer_6545898003 | Konrad | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Konrad_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.oncoustics.com/careers-post/full-stack | Oncoustics | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Oncoustics_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
