@@ -1,7 +1,6 @@
 ## Pendientes
 
 - [ ] https://tangentia.catsone.com/careers/9463-General/jobs/16815579-Senior-Full-Stack-Developer-Java-AngularReact
-- [ ] https://www.cofomo.com/en/jobs/84576
 - [ ] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk
 - [ ] https://foci.bamboohr.com/careers/17
 - [ ] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371
@@ -69,3 +68,4 @@
 - [x] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer | Renaps | Fullstack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Renaps_FullstackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://flexspring.bamboohr.com/careers/53 | Flexspring | Technical Support Specialist | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Flexspring_TechnicalSupportSpecialist_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.cofomo.com/en/jobs/84756 | COFOMO | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.cofomo.com/en/jobs/84576 | COFOMO | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
