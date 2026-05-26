@@ -3,6 +3,8 @@
 
 /add https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
 
+/add https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location
+
 /add https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
 
 /add https://www.oncoustics.com/careers-post/full-stack
@@ -78,7 +80,5 @@
 - [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | HelloFresh | Backend Engineer, Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Hellofresh_BackendEngineerConsumer_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://aviva.wd1.myworkdayjobs.com/en-US/External/job/Markham/Senior-Full-stack-Developer_R-169070 | Aviva | Sr Full stack Developer - Java, Spring Boot | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Aviva_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en | Societe Generale | Senior Developer Fullstack (Java/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/SocieteGenerale_SeniorDeveloperFullstack_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
-
-
-Don't talk. 
 - [x] https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic | City of Toronto | Senior Technical Support Specialist 1 | JD ✅ | Resume ✅ | Score 82/100 | CL ✅ | cover-letters/shivani/CityOfToronto_SeniorTechnicalSupportSpecialist1_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d | Toronto Transit Commission | Senior Systems Analyst | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/TorontoTransitCommission_SeniorSystemsAnalyst_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
