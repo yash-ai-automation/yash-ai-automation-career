@@ -1,15 +1,9 @@
 ## Pendientes
 
-- [ ] https://tangentia.catsone.com/careers/9463-General/jobs/16815579-Senior-Full-Stack-Developer-Java-AngularReact
-- [ ] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk
-- [ ] https://foci.bamboohr.com/careers/17
-- [ ] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371
-- [ ] https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=3d178141-59e5-45ba-a347-db3cfa0b5d08&ccId=19000101_000001&jobId=562338&lang=en_CA&source=CC2&selectedMenuKey=CurrentOpenings
-- [ ] https://careers.purolator.com/job/Kitchener-Technology-Software-Developer-ON-N2B-3E5/1392781100/
-- [ ] https://job-boards.greenhouse.io/dialpad/jobs/8407048002
-- [ ] https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097
-- [ ] https://www.scispot.com/jobs/full-stack-developer
-- [ ] https://www.ascensionas.ca/jobs/software-developer
+- [ ] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin
+
+
+
 
 
 ## Procesadas
@@ -69,3 +63,4 @@
 - [x] https://flexspring.bamboohr.com/careers/53 | Flexspring | Technical Support Specialist | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Flexspring_TechnicalSupportSpecialist_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.cofomo.com/en/jobs/84756 | COFOMO | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.cofomo.com/en/jobs/84576 | COFOMO | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk | Barracuda Networks | Senior Software Developer in Test | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarracudaNetworks_SeniorSoftwareDeveloperInTest_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
