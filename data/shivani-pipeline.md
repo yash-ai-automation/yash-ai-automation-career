@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://jobs.scotiabank.com/job/Toronto-Senior-Software-Engineer-ON-M1H3G2/600216617/?feedId=354060&utm_source=LinkedInJobPostings&utm_campaign=ScotiaBank_Linkedin
 
 
 
@@ -70,3 +69,4 @@
 - [x] https://www.ascensionas.ca/jobs/software-developer | Ascension Automation Solutions | Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/AscensionAutomationSolutions_SoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin | RBC | Senior Full-Stack Developer (Java/Angular) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Rbc_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://jobs.ashbyhq.com/homebase/39944404-94b9-4fd5-8522-181a8a09aa2a?utm_source=unique_code%2C+e.g.+utm_source%3DLinkedInPaid | Homebase | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Homebase_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.scotiabank.com/job/Toronto-Senior-Software-Engineer-ON-M1H3G2/600216617/?feedId=354060&utm_source=LinkedInJobPostings&utm_campaign=ScotiaBank_Linkedin | Scotiabank | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Scotiabank_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
