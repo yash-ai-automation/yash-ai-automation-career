@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://flexspring.bamboohr.com/careers/58
 - [ ] https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp
 - [ ] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
 - [ ] https://www.cofomo.com/en/jobs/84756
@@ -67,3 +66,4 @@
 - [x] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208 | Alithya | Full-Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Alithya_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.oncoustics.com/careers-post/full-stack | Oncoustics | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Oncoustics_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://www.konrad.com/careers/job/full-stack-developer_6545898003 | Konrad | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Konrad_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://flexspring.bamboohr.com/careers/58 | Flexspring | Java Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Flexspring_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
