@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1
 - [ ] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn
 - [ ] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1
 - [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
@@ -105,7 +104,6 @@
 - [x] https://jobs.ashbyhq.com/cohere/64fb905c-b3b4-4fcf-9e1c-a806c9c40068?utm_source=jKNDxYPz51 | Cohere | Software Engineer, Search Applications | JD ✅ | Resume ✅ | Score 97/100 | CL ✅ | cover-letters/yash/Cohere_SoftwareEngineerSearchApplications_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://careers.capgemini.com/job/Toronto-AIML-Engineer-%28PythonRAG%29-ON/1396220933/?feedId=388933&utm_source=LinkedInJobPostings | Capgemini | AI/ML Engineer - (Python/RAG) | JD ✅ | Resume ✅ | Score 98/100 | CL ✅ | cover-letters/yash/Capgemini_AiMlEngineer_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://cbcrc.wd3.myworkdayjobs.com/CBC_Radio-Canada_Jobs/job/Toronto-ON/Data---AI-Engineer--Business-Intelligence_JR00007667?source=LinkedIn | CBC/Radio-Canada | Senior AI Engineer, Business Intelligence | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/CbcRadioCanada_SeniorAiEngineerBusinessIntelligence_Yash_Anghan_Cover_Letter_2026-05-22.pdf
-- [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | AI Native Staff Software Engineer - Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_AiNativeStaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://www.mckinsey.com/careers/search-jobs/jobs/dataengineerii-quantumblackaibymckinsey-102543?appsource=LinkedIn | McKinsey | Data Engineer II | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Mckinsey_DataEngineerIi_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://jobs.rogers.com/job/Brampton-Data-Engineer-ON/1375348000/?feedId=23200&utm_source=LinkedInJobPostings&utm_campaign=Rogers_PremiumFeeds | Rogers | Data Engineer | JD ✅ | Resume ✅ | Score 90/100 | CL ✅ | cover-letters/yash/Rogers_DataEngineer_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://careers.omers.com/ca/en/job/JR-8085/Associate---Senior-Associate-AI-Product--Investment-Platforms-%25E2%2580%2593-Private-Capital?src=Linkedin | OMERS | Associate / Senior Associate, AI Product & Investment Platforms – Private Capital | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Omers_AssociateSeniorAssociateAiProductInvestmentPlatformsPrivateCapital_Yash_Anghan_Cover_Letter_2026-05-24.pdf
@@ -139,3 +137,4 @@
 - [x] https://www.zoominfo.com/careers/jr107435/randd-engineer-ai-and-innovation?gh_src=d14a9e1e2&gh_jid=8534416002 | ZoomInfo | R&D Engineer - AI and Innovation | JD ✅ | Resume ✅ | Score 95/100
 - [x] https://motionrecruitment.com/tech-jobs/toronto/contract/senior-application-support-engineer-azure-and-ai-ml/873541?utm_source=linkedin&utm_medium=feed&utm_campaign=paid-20210428 | Motion Recruitment | Senior Application Support Engineer (Azure & AI/ML) | JD ✅ | Resume ✅ | Score 100/100
 - [x] https://www.kaseya.com/careers/jobs/id/5825003004/?gh_jid=5825003004 | Kaseya | Staff Backend Engineer SaaS Data and AI | JD ✅ | Resume ✅ | Score 95/100
+- [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | Staff Software Engineer -- Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_StaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-27.pdf
