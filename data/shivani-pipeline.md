@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://careers.toasttab.com/jobs/senior-software-engineer-care-experience-toronto-ontario-canada?gh_jid=7888090&gh_src=dbd19ebc1
 - [ ] https://apply.appcast.io/jobs/53899595281/applyboard/apply?cs=jj7&sjg=8kvf&source=LinkedIn&ccuid=72015277127&ua=4&__ssr=true
 
 
@@ -75,3 +74,4 @@
 - [x] https://www.vanguardjobs.com/job/23424939/?source=LinkedIn | Vanguard | Investment Systems Application Engineer - IV | JD ✅ | Resume ✅ | Score 4/100 | CL ✅ | cover-letters/shivani/Vanguard_InvestmentSystemsApplicationEngineerIv_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0072044EXTERNALENUS/Sr-SWE-MTS-1-Backend-eBay-Live?utm_source=linkedin&utm_medium=phenom-feeds | eBay | Sr. SWE - MTS 1, Backend eBay Live | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Ebay_SrSweMts1BackendEbayLive_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0074237EXTERNALENUS/Software-Engineer-3-Backend?utm_source=linkedin&utm_medium=phenom-feeds | eBay | Software Engineer 3, Backend | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Ebay_SoftwareEngineer3Backend_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://careers.toasttab.com/jobs/senior-software-engineer-care-experience-toronto-ontario-canada?gh_jid=7888090&gh_src=dbd19ebc1 | Toast | Senior Software Engineer, Care Experience | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Toast_SeniorSoftwareEngineerCareExperience_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
