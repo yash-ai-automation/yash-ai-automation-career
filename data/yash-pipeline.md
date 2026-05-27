@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn
 - [ ] https://jobs.smartrecruiters.com/UniversityHealthNetwork/744000128486724-machine-learning-specialist?trid=2d92f286-613b-4daf-9dfa-6340ffbecf73
 - [ ] https://careers.telus.com/job/Toronto-Senior-Cloud-AI-Software-Developer-(Remote)-ON/602147417/?source=LinkedIn
 
@@ -138,3 +137,4 @@
 - [x] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/ | Lincoln Electric | Software Developer (C#, Python) | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/LincolnElectric_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin | EvenUp | Engineering Manager, AI DocGen | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Evenup_EngineeringManagerAiDocgen_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us | Evismart | AI & Automation Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Evismart_AiAutomationEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn | Paper | Senior AI Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Paper_SeniorAiEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
