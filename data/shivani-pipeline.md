@@ -1,6 +1,10 @@
 ## Pendientes
 
-
+- [ ] https://www.vanguardjobs.com/job/23424939/?source=LinkedIn
+- [ ] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0072044EXTERNALENUS/Sr-SWE-MTS-1-Backend-eBay-Live?utm_source=linkedin&utm_medium=phenom-feeds
+- [ ] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0074237EXTERNALENUS/Software-Engineer-3-Backend?utm_source=linkedin&utm_medium=phenom-feeds
+- [ ] https://careers.toasttab.com/jobs/senior-software-engineer-care-experience-toronto-ontario-canada?gh_jid=7888090&gh_src=dbd19ebc1
+- [ ] https://apply.appcast.io/jobs/53899595281/applyboard/apply?cs=jj7&sjg=8kvf&source=LinkedIn&ccuid=72015277127&ua=4&__ssr=true
 
 
 ## Procesadas
@@ -70,3 +74,4 @@
 - [x] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin | RBC | Senior Full-Stack Developer (Java/Angular) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Rbc_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://jobs.ashbyhq.com/homebase/39944404-94b9-4fd5-8522-181a8a09aa2a?utm_source=unique_code%2C+e.g.+utm_source%3DLinkedInPaid | Homebase | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Homebase_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://jobs.scotiabank.com/job/Toronto-Senior-Software-Engineer-ON-M1H3G2/600216617/?feedId=354060&utm_source=LinkedInJobPostings&utm_campaign=ScotiaBank_Linkedin | Scotiabank | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Scotiabank_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Senior-Software-Developer_26WD98132?src=JB-10065&source=LinkedIn | Autodesk | Senior Software Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Autodesk_SeniorSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
