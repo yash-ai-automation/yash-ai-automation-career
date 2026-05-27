@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
 - [ ] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/
 - [ ] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin
 - [ ] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us
@@ -138,3 +137,4 @@
 - [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | Staff Software Engineer -- Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_StaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn | Autodesk | Software Developer Agentic Evaluation | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SoftwareDeveloperAgenticEvaluation_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1 | Autodesk | Senior Software AI Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SeniorSoftwareAiDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151 | Fortinet | Intermediate Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Fortinet_IntermediateFullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
