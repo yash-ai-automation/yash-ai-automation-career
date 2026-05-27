@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin
 - [ ] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us
 - [ ] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn
 - [ ] https://jobs.smartrecruiters.com/UniversityHealthNetwork/744000128486724-machine-learning-specialist?trid=2d92f286-613b-4daf-9dfa-6340ffbecf73
@@ -138,3 +137,4 @@
 - [x] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1 | Autodesk | Senior Software AI Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SeniorSoftwareAiDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151 | Fortinet | Intermediate Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Fortinet_IntermediateFullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/ | Lincoln Electric | Software Developer (C#, Python) | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/LincolnElectric_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin | EvenUp | Engineering Manager, AI DocGen | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Evenup_EngineeringManagerAiDocgen_Yash_Anghan_Cover_Letter_2026-05-27.pdf
