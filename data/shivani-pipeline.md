@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://desjardins.wd10.myworkdayjobs.com/en-US/Desjardins/job/Montral/Dveloppeur-ou-dveloppeuse--Java-Spring_R2506499-1
 - [ ] https://cgi.njoyn.com/Corp/xweb/xweb.asp?CLID=21001&page=jobdetails&JobID=J0526-1936&lang=1
 - [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
 
@@ -78,3 +77,4 @@
 - [x] https://careers.toasttab.com/jobs/senior-software-engineer-care-experience-toronto-ontario-canada?gh_jid=7888090&gh_src=dbd19ebc1 | Toast | Senior Software Engineer, Care Experience | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Toast_SeniorSoftwareEngineerCareExperience_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://apply.appcast.io/jobs/53899595281/applyboard/apply?cs=jj7&sjg=8kvf&source=LinkedIn&ccuid=72015277127&ua=4&__ssr=true | OPENLANE | Full-Stack Engineer | JD ✅ | Resume ✅ | Score 80/100 | CL ✅ | cover-letters/shivani/Openlane_FullStackEngineer_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://job-boards.greenhouse.io/behavox/jobs/7959479 | Behavox | Senior Java Developer | JD ✅ | Resume ✅ | Score 91/100
+- [x] https://desjardins.wd10.myworkdayjobs.com/en-US/Desjardins/job/Montral/Dveloppeur-ou-dveloppeuse--Java-Spring_R2506499-1 | Desjardins | Java Spring Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Desjardins_JavaSpringDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
