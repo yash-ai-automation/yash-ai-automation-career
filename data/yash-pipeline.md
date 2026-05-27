@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://jobs.ashbyhq.com/scribdinc/35fdbec7-a3b1-41bc-9f35-e3fb720c6d63?source=linkedin
 - [ ] https://www.google.com/about/careers/applications/jobs/results/133526255398986438-forward-deployed-developer/?src=Online/LinkedIn/linkedin_us&utm_source=linkedin&utm_medium=jobposting&utm_campaign=contract
 - [ ] https://www.zoominfo.com/careers/jr107435/randd-engineer-ai-and-innovation?gh_src=d14a9e1e2&gh_jid=8534416002
 - [ ] https://motionrecruitment.com/tech-jobs/toronto/contract/senior-application-support-engineer-azure-and-ai-ml/873541?utm_source=linkedin&utm_medium=feed&utm_campaign=paid-20210428
@@ -132,3 +131,4 @@
 - [x] https://jobs.ashbyhq.com/wealthsimple/fec01150-fed6-4158-9e94-e59328d79533?utm_source=linkedinpaid | Wealthsimple | Senior Software Developer | JD ✅ | Resume ✅ | Score 100/100
 - [x] https://jobs.ashbyhq.com/homebase/39944404-94b9-4fd5-8522-181a8a09aa2a?utm_source=unique_code%2C+e.g.+utm_source%3DLinkedInPaid | Homebase | Senior Software Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Homebase_SeniorSoftwareEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
 - [x] https://recruiting.paylocity.com/Recruiting/Jobs/Details/4175162?src=LinkedIn | Guideline | Software Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Guideline_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ashbyhq.com/scribdinc/35fdbec7-a3b1-41bc-9f35-e3fb720c6d63?source=linkedin | Scribd | Software Engineer (Backend), Content Foundations | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Scribd_SoftwareEngineerContentFoundations_Yash_Anghan_Cover_Letter_2026-05-27.pdf
