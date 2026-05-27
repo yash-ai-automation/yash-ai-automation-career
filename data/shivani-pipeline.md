@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
 
 ## Procesadas
 - [x] https://job-boards.greenhouse.io/clutch/jobs/6000418004?gh_src=ca458a634us | Clutch Technologies Inc. | Staff Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Clutch_StaffSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-20.pdf
@@ -78,3 +77,4 @@
 - [x] https://job-boards.greenhouse.io/behavox/jobs/7959479 | Behavox | Senior Java Developer | JD ✅ | Resume ✅ | Score 91/100
 - [x] https://desjardins.wd10.myworkdayjobs.com/en-US/Desjardins/job/Montral/Dveloppeur-ou-dveloppeuse--Java-Spring_R2506499-1 | Desjardins | Java Spring Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Desjardins_JavaSpringDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://cgi.njoyn.com/Corp/xweb/xweb.asp?CLID=21001&page=jobdetails&JobID=J0526-1936&lang=1 | CGI | Senior Full Stack Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_SeniorFullStackJavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151 | Fortinet | Intermediate Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100
