@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn
 - [ ] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1
 - [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
 - [ ] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/
@@ -138,3 +137,4 @@
 - [x] https://motionrecruitment.com/tech-jobs/toronto/contract/senior-application-support-engineer-azure-and-ai-ml/873541?utm_source=linkedin&utm_medium=feed&utm_campaign=paid-20210428 | Motion Recruitment | Senior Application Support Engineer (Azure & AI/ML) | JD ✅ | Resume ✅ | Score 100/100
 - [x] https://www.kaseya.com/careers/jobs/id/5825003004/?gh_jid=5825003004 | Kaseya | Staff Backend Engineer SaaS Data and AI | JD ✅ | Resume ✅ | Score 95/100
 - [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | Staff Software Engineer -- Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_StaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn | Autodesk | Software Developer Agentic Evaluation | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SoftwareDeveloperAgenticEvaluation_Yash_Anghan_Cover_Letter_2026-05-27.pdf
