@@ -1,9 +1,15 @@
 ## Pendientes
 
-- [ ] https://www.kaseya.com/careers/jobs/id/5825003004/?gh_jid=5825003004
 - [ ] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1
 - [ ] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn
 - [ ] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1
+- [ ] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151
+- [ ] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/
+- [ ] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin
+- [ ] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us
+- [ ] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn
+- [ ] https://jobs.smartrecruiters.com/UniversityHealthNetwork/744000128486724-machine-learning-specialist?trid=2d92f286-613b-4daf-9dfa-6340ffbecf73
+- [ ] https://careers.telus.com/job/Toronto-Senior-Cloud-AI-Software-Developer-(Remote)-ON/602147417/?source=LinkedIn
 
 
 
@@ -132,3 +138,4 @@
 - [x] https://www.google.com/about/careers/applications/jobs/results/133526255398986438-forward-deployed-developer/?src=Online/LinkedIn/linkedin_us&utm_source=linkedin&utm_medium=jobposting&utm_campaign=contract | Google Cloud | Forward Deployed Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/GoogleCloud_ForwardDeployedDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://www.zoominfo.com/careers/jr107435/randd-engineer-ai-and-innovation?gh_src=d14a9e1e2&gh_jid=8534416002 | ZoomInfo | R&D Engineer - AI and Innovation | JD ✅ | Resume ✅ | Score 95/100
 - [x] https://motionrecruitment.com/tech-jobs/toronto/contract/senior-application-support-engineer-azure-and-ai-ml/873541?utm_source=linkedin&utm_medium=feed&utm_campaign=paid-20210428 | Motion Recruitment | Senior Application Support Engineer (Azure & AI/ML) | JD ✅ | Resume ✅ | Score 100/100
+- [x] https://www.kaseya.com/careers/jobs/id/5825003004/?gh_jid=5825003004 | Kaseya | Staff Backend Engineer SaaS Data and AI | JD ✅ | Resume ✅ | Score 95/100
