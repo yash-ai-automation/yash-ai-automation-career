@@ -1,6 +1,5 @@
 ## Pendientes
 
-- [ ] https://careers.telus.com/job/Toronto-Senior-Cloud-AI-Software-Developer-(Remote)-ON/602147417/?source=LinkedIn
 
 
 
@@ -138,3 +137,4 @@
 - [x] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us | Evismart | AI & Automation Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Evismart_AiAutomationEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn | Paper | Senior AI Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Paper_SeniorAiEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
 - [x] https://jobs.smartrecruiters.com/UniversityHealthNetwork/744000128486724-machine-learning-specialist?trid=2d92f286-613b-4daf-9dfa-6340ffbecf73 | University Health Network | Machine Learning Specialist | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/UniversityHealthNetwork_MachineLearningSpecialist_Yash_Anghan_Cover_Letter_2026-05-28.pdf
+- [x] https://careers.telus.com/job/Toronto-Senior-Cloud-AI-Software-Developer-(Remote)-ON/602147417/?source=LinkedIn | TELUS | Senior Cloud AI Software Developer | JD ✅ | Resume ✅ | Score 95/100
