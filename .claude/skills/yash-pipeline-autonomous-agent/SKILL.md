@@ -15,7 +15,7 @@ This skill is operational, not generative. It does NOT modify resumes, JDs, or p
 - User asks for the runbook (see also `OPERATIONS.md` at repo root for the long form).
 
 ## Architecture (one-paragraph reminder)
-Two systemd `--user` daemons (`telegram-listener`, `pipeline-orchestrator`) read from `/etc/yash-pipeline/agent.env`, share state through `ops/work-queue.db` (SQLite WAL), and spawn one `claude -p` per URL. Per-URL latency 6–14 min (preserves the existing `/yash-resume-pipeline` budget; no improvement). Spec: `docs/superpowers/specs/2026-05-24-yash-pipeline-autonomous-agent-architecture.md`.
+Two systemd `--user` daemons (`telegram-listener`, `pipeline-orchestrator`) read from `/etc/yash-pipeline/agent.env`, share state through `ops/work-queue.db` (SQLite WAL), and spawn one `claude -p` per URL using model `${CLAUDE_MODEL:-claude-sonnet-4-6}` with adaptive thinking (`--effort ${CLAUDE_EFFORT:-xhigh}`). Daily cap defaults to **50** (`CAP_DAILY_MAX`), weekly to **250** (`CAP_WEEKLY_MAX`). On a `claude -p` usage-limit response, the orchestrator writes a cross-tenant pause file at `${RATE_LIMIT_STATE_PATH:-/var/lib/claude-pipeline/rate-limit.json}` and re-queues the URL **without consuming a retry attempt**; the Shivani daemon reads the same file and pauses too. Per-URL latency 6–14 min (preserves the existing `/yash-resume-pipeline` budget; no improvement). Spec: `docs/superpowers/specs/2026-05-24-yash-pipeline-autonomous-agent-architecture.md`.
 
 ## Quick diagnostic commands
 ```bash
@@ -41,6 +41,7 @@ sqlite3 ops/work-queue.db "SELECT status, COUNT(*) FROM runs WHERE date(started_
 | Run failed with `tectonic exit` | Read `resume-logs/yash/<slug>.log` last 30 lines | Re-add via `/add <same-url>` after 24h, or `/readd` (Phase 3) |
 | "OOM" notification | `dmesg \| tail -100` for the killed process | Reduce concurrency (already 1); inspect tectonic memory profile |
 | Secret leak alert from pre-commit | `tools/check-secrets.sh` output | Move offending lines to `/etc/yash-pipeline/agent.env`, recommit |
+| `⏸️ Claude usage-limit window active until …` (one msg only, then silence) | This is correct behavior — Claude Max 5-hour window hit by either tenant. Both bots pause until reset. | Audit: `journalctl --user -u pipeline-orchestrator --since today \| grep rate_limit`. Force-resume: `sudo rm /var/lib/claude-pipeline/rate-limit.json && systemctl --user restart pipeline-orchestrator shivani-pipeline-orchestrator` (then expect a fresh quota window) |
 
 ## Rollback
 ```bash
