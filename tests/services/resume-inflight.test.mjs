@@ -125,7 +125,7 @@ test('resumeInFlightRun: clean exit → marks queue done, run ok, deletes checkp
     const notifications = [];
     let spawnCalledWith = null;
     const result = await resumeInFlightRun({
-      db, projectRoot: dir, dbPath, claudeModel: 'claude-opus-4-7',
+      db, projectRoot: dir, dbPath, claudeModel: 'claude-sonnet-4-6',
       notify: (msg) => notifications.push(msg),
       recovery,
       spawn: async (ctx /*, hooks */) => {

@@ -65,7 +65,7 @@ test('e2e: 3 consecutive Shivani failures → 3 Telegram messages, "attempt 3/3 
         db, projectRoot: dir,
         capLimits: { dailyMax: 20, weeklyMax: 100 },
         gitSha: 'cafebabe',
-        claudeModel: 'claude-opus-4-7',
+        claudeModel: 'claude-sonnet-4-6',
         spawn: async () => ({
           exitCode: 1,
           error: 'tectonic exit 11',

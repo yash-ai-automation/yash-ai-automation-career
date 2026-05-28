@@ -1,7 +1,10 @@
 // tests/services/notifier.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatStart, formatPhaseEnd, formatSuccess, formatFailure, formatHelp } from '../../services/notifier.mjs';
+import {
+  formatStart, formatPhaseEnd, formatSuccess, formatFailure, formatHelp,
+  formatRateLimitPaused, formatRateLimitResumed,
+} from '../../services/notifier.mjs';
 
 function withEnv(key, value, fn) {
   const orig = process.env[key];
@@ -56,4 +59,25 @@ test('formatHelp ignores empty TENANT_LABEL and falls back to default', () => {
   withEnv('TENANT_LABEL', '', () => {
     assert.match(formatHelp(), /\*yash-pipeline bot — commands\*/);
   });
+});
+
+test('formatRateLimitPaused shows ISO + HH:MM UTC and the pause emoji', () => {
+  const resetAt = new Date('2026-05-28T09:30:00.000Z');
+  const s = formatRateLimitPaused({ resetAt });
+  assert.match(s, /⏸️/);
+  assert.match(s, /2026-05-28T09:30:00\.000Z/);
+  assert.match(s, /≈09:30 UTC/);
+  assert.match(s, /paused for all tenants/);
+});
+
+test('formatRateLimitPaused accepts ISO string for resetAt', () => {
+  const s = formatRateLimitPaused({ resetAt: '2026-05-28T18:05:00Z' });
+  assert.match(s, /2026-05-28T18:05:00\.000Z/);
+  assert.match(s, /≈18:05 UTC/);
+});
+
+test('formatRateLimitResumed contains play emoji and "resuming queue"', () => {
+  const s = formatRateLimitResumed();
+  assert.match(s, /▶️/);
+  assert.match(s, /resuming queue/);
 });

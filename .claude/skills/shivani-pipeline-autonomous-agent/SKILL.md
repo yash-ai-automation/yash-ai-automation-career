@@ -15,7 +15,7 @@ This skill is operational, not generative. It does NOT modify resumes, JDs, or p
 - User asks for the Shivani runbook (see also `OPERATIONS.md` in this skill folder for the long form).
 
 ## Architecture (one-paragraph reminder)
-Two systemd `--user` daemons (`shivani-telegram-listener`, `shivani-pipeline-orchestrator`) read from `/etc/shivani-pipeline/agent.env`, share state through `ops/shivani/work-queue.db` (SQLite WAL), and spawn one `claude -p` per URL pinned to `claude-opus-4-7` running `/shivani-resume-pipeline`. Allowlist is single-user; URLs from any other Telegram user are silently ignored. Per-URL latency tracks the existing `/shivani-resume-pipeline` budget (V3.1 prompt + cover-letter generation + tectonic compile). Plan: `docs/superpowers/plans/2026-05-25-shivani-autonomous-agent-impl-plan.md`.
+Two systemd `--user` daemons (`shivani-telegram-listener`, `shivani-pipeline-orchestrator`) read from `/etc/shivani-pipeline/agent.env`, share state through `ops/shivani/work-queue.db` (SQLite WAL), and spawn one `claude -p` per URL using model `${CLAUDE_MODEL:-claude-sonnet-4-6}` with adaptive thinking (`--effort ${CLAUDE_EFFORT:-xhigh}`). Allowlist is single-user; URLs from any other Telegram user are silently ignored. Daily cap defaults to **50** (`CAP_DAILY_MAX`), weekly to **250** (`CAP_WEEKLY_MAX`). **The rate-limit state file at `${RATE_LIMIT_STATE_PATH:-/var/lib/claude-pipeline/rate-limit.json}` is SHARED with the Yash daemon** — both bots share the same Claude Max login on this VPS, so a usage-limit hit by either tenant pauses both queues until the 5-hour window resets; the URL is re-queued without consuming a retry attempt. Per-URL latency tracks the existing `/shivani-resume-pipeline` budget (V3.1 prompt + cover-letter generation + tectonic compile). Plan: `docs/superpowers/plans/2026-05-25-shivani-autonomous-agent-impl-plan.md`.
 
 ## Quick diagnostic commands
 ```bash
@@ -45,6 +45,7 @@ systemctl --user status telegram-listener pipeline-orchestrator --no-pager | hea
 | "OOM" notification | `dmesg \| tail -100` for the killed process; check `MemoryMax=1G` on the unit | If two tenants overlapped → lower concurrency cap or resize VPS (plan §5.4) |
 | Secret leak alert from `tools/check-secrets.sh` | Output identifies the offending file | Move the secret to `/etc/shivani-pipeline/agent.env` (mode 0600), recommit; never paste tokens into a Claude session |
 | Yash agent regression after Shivani deploy | Tail Yash journalctl + run `npm run test:services` | Roll back ONLY Shivani: `systemctl --user disable --now shivani-*`. Yash defaults preserved in PR 1 — Yash should not regress from Shivani changes |
+| `⏸️ Claude usage-limit window active until …` (one msg only, then silence — same message in Yash bot too) | Correct behavior — Claude Max 5-hour window hit. The shared state file at `/var/lib/claude-pipeline/rate-limit.json` paused both bots. | Audit: `cat /var/lib/claude-pipeline/rate-limit.json` + `journalctl --user -u shivani-pipeline-orchestrator --since today \| grep rate_limit`. Force-resume: `sudo rm /var/lib/claude-pipeline/rate-limit.json && systemctl --user restart pipeline-orchestrator shivani-pipeline-orchestrator` (only do this if you have fresh quota — otherwise the daemons will immediately re-pause on the next URL) |
 
 ## Rollback (Shivani-only — Yash untouched)
 ```bash

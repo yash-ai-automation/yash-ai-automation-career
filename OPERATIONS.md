@@ -34,9 +34,55 @@ Expected: both units `active (running)`; today's run counts < 20.
    Expected: `long-poll error` lines disappear within 30s; `/help` from Telegram responds.
 
 ## 4. Changing the cap
-Edit the constant in `services/pipeline-orchestrator.mjs` (`capLimits: { dailyMax: 20, weeklyMax: 100 }`) and commit; the daemon picks up on next restart:
+Defaults are **50 daily / 250 weekly** (raised from 20/100 on 2026-05-28). Override via env vars in `/etc/yash-pipeline/agent.env` (or the Shivani equivalent at `/etc/shivani-pipeline/agent.env`):
+```
+CAP_DAILY_MAX=50
+CAP_WEEKLY_MAX=250
+```
+Leave the key out (or set empty) to use the default. Restart:
 ```bash
 systemctl --user restart pipeline-orchestrator
+# or for Shivani:
+systemctl --user restart shivani-pipeline-orchestrator
+```
+
+## 4.1 Rate-limit auto-recovery
+
+The orchestrator detects Claude Max 5-hour usage-limit events from the `claude -p` output (regexes in `services/rate-limit.mjs`) and **pauses BOTH tenants** until the window resets. State lives in a single JSON file at `/var/lib/claude-pipeline/rate-limit.json` (configurable via `RATE_LIMIT_STATE_PATH`).
+
+**Per-deploy setup (one-time on the VPS):**
+```bash
+sudo mkdir -p /var/lib/claude-pipeline
+sudo chown yash:yash /var/lib/claude-pipeline
+sudo chmod 755 /var/lib/claude-pipeline
+```
+
+**How it behaves when triggered:**
+1. `tickOnce` reads the last 8 KiB of `ops/runs/<id>/claude.log` after a non-zero exit; if `detectRateLimit()` matches, the row is re-queued with `attempts` unchanged and `runs.status='rate_limited'` (which the cap counter ignores — see `services/cap.mjs` `CAPPED_STATUSES`).
+2. Both daemons read `/var/lib/claude-pipeline/rate-limit.json` on every 2-second tick; while `Date.now() < resetAt` they return `action='rate_limit_paused'` and emit one Telegram pause message per daemon process.
+3. When the window elapses, the next tick deletes the state file, runs `UPDATE queue SET paused=0`, emits one `▶️ resumed` message, and resumes normal cap-checked processing.
+
+**Manual override (force-resume now):**
+```bash
+sudo rm -f /var/lib/claude-pipeline/rate-limit.json
+systemctl --user restart pipeline-orchestrator shivani-pipeline-orchestrator
+```
+
+**Force-trigger for smoke test:**
+```bash
+# Pause both bots for 5 minutes
+echo '{"resetAt":"'"$(date -u -d '+5 min' +%Y-%m-%dT%H:%M:%SZ)"'","reason":"smoke","setBy":"manual","writtenAt":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' | sudo tee /var/lib/claude-pipeline/rate-limit.json
+sudo chown yash:yash /var/lib/claude-pipeline/rate-limit.json
+# Within 2 s: both Telegram chats receive ⏸️ pause message exactly once.
+# After 5 min: both receive ▶️ resume message and daemons resume.
+```
+
+**Audit:**
+```bash
+# Was the rate-limit branch triggered today?
+journalctl --user -u pipeline-orchestrator --since today --no-pager | grep -E 'rate_limit_hit|rate_limit_paused|rate_limit_window_reset'
+# How many rate_limited runs in the audit table?
+sqlite3 /yash-superClaudeHuman/projects/yash-ai-automation-career/ops/work-queue.db "SELECT count(*), max(started_at) FROM runs WHERE status='rate_limited'"
 ```
 
 ## 5. Manual cancellation
@@ -129,6 +175,12 @@ journalctl --user -u pipeline-orchestrator -o cat | jq -c 'select(.event=="bot_o
 | `GIT_SHA` | (set by systemd ExecStartPre) | Stamped on every log line for fast version triage. |
 | `LOG_TRANSPORT` | `none` | `none` = stdout only (journald captures). `betterstack` = also ship to BetterStack/Logtail. |
 | `LOGTAIL_TOKEN` | — | Required iff `LOG_TRANSPORT=betterstack`. Daemon refuses to start without it. |
+| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Active model for `claude -p`. Override to any valid alias without a code change. |
+| `CLAUDE_EFFORT` | `xhigh` | Maps to `--effort` flag (adaptive thinking budget). Set to `""` to drop the flag entirely if the installed CLI rejects it. |
+| `CLAUDE_FALLBACK_MODEL` | (unset) | Opt-in `--fallback-model`; covers HTTP 529 overloads only, NOT 5-hour usage-limit events. |
+| `CAP_DAILY_MAX` | `50` | Daily cap override (since 2026-05-28; previously hardcoded at 20). |
+| `CAP_WEEKLY_MAX` | `250` | Weekly cap override (since 2026-05-28; previously hardcoded at 100). |
+| `RATE_LIMIT_STATE_PATH` | `/var/lib/claude-pipeline/rate-limit.json` | Shared with Shivani — both daemons read+write the same file so a usage-limit hit by either tenant pauses both. |
 
 ### 11.3. Wiring BetterStack (optional, opt-in)
 1. Create a BetterStack source → copy the source token.

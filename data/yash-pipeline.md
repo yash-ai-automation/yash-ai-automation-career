@@ -1,6 +1,23 @@
-# Job Pipeline
-
 ## Pendientes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Procesadas
 - [x] https://mogo.applytojob.com/apply/gOPOa1WL7r/AINative-Full-Stack-Engineer | Orion Digital | AI-Native Full Stack Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ❌
@@ -78,10 +95,8 @@
 - [x] https://jobs.ashbyhq.com/cohere/64fb905c-b3b4-4fcf-9e1c-a806c9c40068?utm_source=jKNDxYPz51 | Cohere | Software Engineer, Search Applications | JD ✅ | Resume ✅ | Score 97/100 | CL ✅ | cover-letters/yash/Cohere_SoftwareEngineerSearchApplications_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://careers.capgemini.com/job/Toronto-AIML-Engineer-%28PythonRAG%29-ON/1396220933/?feedId=388933&utm_source=LinkedInJobPostings | Capgemini | AI/ML Engineer - (Python/RAG) | JD ✅ | Resume ✅ | Score 98/100 | CL ✅ | cover-letters/yash/Capgemini_AiMlEngineer_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://cbcrc.wd3.myworkdayjobs.com/CBC_Radio-Canada_Jobs/job/Toronto-ON/Data---AI-Engineer--Business-Intelligence_JR00007667?source=LinkedIn | CBC/Radio-Canada | Senior AI Engineer, Business Intelligence | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/CbcRadioCanada_SeniorAiEngineerBusinessIntelligence_Yash_Anghan_Cover_Letter_2026-05-22.pdf
-- [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | AI Native Staff Software Engineer - Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_AiNativeStaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://www.mckinsey.com/careers/search-jobs/jobs/dataengineerii-quantumblackaibymckinsey-102543?appsource=LinkedIn | McKinsey | Data Engineer II | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Mckinsey_DataEngineerIi_Yash_Anghan_Cover_Letter_2026-05-22.pdf
 - [x] https://jobs.rogers.com/job/Brampton-Data-Engineer-ON/1375348000/?feedId=23200&utm_source=LinkedInJobPostings&utm_campaign=Rogers_PremiumFeeds | Rogers | Data Engineer | JD ✅ | Resume ✅ | Score 90/100 | CL ✅ | cover-letters/yash/Rogers_DataEngineer_Yash_Anghan_Cover_Letter_2026-05-22.pdf
-- [x] https://careers.omers.com/ca/en/job/JR-8085/Associate---Senior-Associate-AI-Product--Investment-Platforms-%E2%80%93-Private-Capital?src=Linkedin | OMERS | Associate / Senior Associate, AI Product & Investment Platforms – Private Capital | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Omers_AssociateSeniorAssociateAiProductInvestmentPlatformsPrivateCapital_Yash_Anghan_Cover_Letter_2026-05-24.pdf
 - [x] https://careers.omers.com/ca/en/job/JR-8085/Associate---Senior-Associate-AI-Product--Investment-Platforms-%25E2%2580%2593-Private-Capital?src=Linkedin | OMERS | Associate / Senior Associate, AI Product & Investment Platforms – Private Capital | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Omers_AssociateSeniorAssociateAiProductInvestmentPlatformsPrivateCapital_Yash_Anghan_Cover_Letter_2026-05-24.pdf
 - [x] https://www.pepsicojobs.com/main/jobs/447818?lang=en-us&iisn=linkedin | PepsiCo Canada | Ai/Machine Learning Scientist New Grad | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | /yash-superClaudeHuman/projects/yash-ai-automation-career/cover-letters/yash/PepsicoCanada_AiMachineLearningScientistNewGrad_Yash_Anghan_Cover_Letter_2026-05-24.pdf
 - [x] https://jobs.citi.com/job/-/-/287/94606035040?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Genai Platform Engineer Python | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/yash/Citi_GenaiPlatformEngineerPython_Yash_Anghan_Cover_Letter_2026-05-25.pdf
@@ -89,3 +104,37 @@
 - [x] https://aviva.wd1.myworkdayjobs.com/en-US/External/job/Markham/Senior-Full-stack-Developer_R-169070 | Aviva | Sr Full Stack Developer Java Spring Boot | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/yash/Aviva_SrFullStackDeveloperJavaSpringBoot_Yash_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | Hellofresh | Backend Engineer Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Hellofresh_BackendEngineerConsumer_Yash_Anghan_Cover_Letter_2026-05-25.pdf
 - [x] https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Senior Java Developer Assistant Vice President | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Citi_SeniorJavaDeveloperAssistantVicePresident_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://job-boards.greenhouse.io/pcm/jobs/4257446009 | Connor, Clark & Lunn Private Capital Ltd. | AI Solutions Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/ConnorClarkLunnPrivateCapitalLtd_AiSolutionsEngineer_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d | Toronto Transit Commission | Senior Systems Analyst | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/TorontoTransitCommission_SeniorSystemsAnalyst_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://careers.qualcomm.com/careers/job/446717095636?hl=en-US&utm_source=linkedin&domain=qualcomm.com&source=APPLICANT_SOURCE-6-2 | Qualcomm Canada ULC | Staff Software Engineer – Platform Debug | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/yash/Qualcomm_StaffSoftwareEngineerPlatformDebug_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic | City of Toronto | Senior Technical Support Specialist 1 | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/CityOfToronto_SeniorTechnicalSupportSpecialist1_Yash_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://stacktics.freshteam.com/jobs/bDcnp5VpWOHd/ai-engineer-google-cloud | Stacktics | AI Engineer (Google Cloud) | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/yash/Stacktics_AiEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://job-boards.greenhouse.io/embed/job_app?for=affinity&token=7664593003 | Affinity | Senior AI Engineer, AI Platform | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Affinity_SeniorAiEngineerAiPlatform_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://trendmicro.wd3.myworkdayjobs.com/External/job/Ottawa/Applied-AI-ML-Engineer---Ottawa--ON_R0009518 | Trend Micro | Applied AI ML Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/TrendMicro_AppliedAiMlEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://flexspring.bamboohr.com/careers/58 | Flexspring | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Flexspring_JavaDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer | RENAPS | Fullstack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Renaps_FullstackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.konrad.com/careers/job/full-stack-developer_6545898003 | Konrad | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Konrad_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.oncoustics.com/careers-post/full-stack | Oncoustics | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Oncoustics_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location | Citco | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Citco_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://tangentia.catsone.com/careers/9463-General/jobs/16815579-Senior-Full-Stack-Developer-Java-AngularReact | Tangentia | Senior Full Stack Developer (Java + Angular/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Tangentia_SeniorFullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.scispot.com/jobs/full-stack-developer | Scispot | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Scispot_FullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.ascensionas.ca/jobs/software-developer | Ascension Automation Solutions | Software Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/AscensionAutomationSolutions_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=3d178141-59e5-45ba-a347-db3cfa0b5d08&ccId=19000101_000001&jobId=562338&lang=en_CA&source=CC2&selectedMenuKey=CurrentOpenings | Nanometrics | Senior Software Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Nanometrics_SeniorSoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.ashbyhq.com/wealthsimple/fec01150-fed6-4158-9e94-e59328d79533?utm_source=linkedinpaid | Wealthsimple | Senior Software Developer | JD ✅ | Resume ✅ | Score 100/100
+- [x] https://jobs.ashbyhq.com/homebase/39944404-94b9-4fd5-8522-181a8a09aa2a?utm_source=unique_code%2C+e.g.+utm_source%3DLinkedInPaid | Homebase | Senior Software Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Homebase_SeniorSoftwareEngineer_Yash_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://recruiting.paylocity.com/Recruiting/Jobs/Details/4175162?src=LinkedIn | Guideline | Software Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Guideline_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ashbyhq.com/scribdinc/35fdbec7-a3b1-41bc-9f35-e3fb720c6d63?source=linkedin | Scribd | Software Engineer (Backend), Content Foundations | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Scribd_SoftwareEngineerContentFoundations_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://www.google.com/about/careers/applications/jobs/results/133526255398986438-forward-deployed-developer/?src=Online/LinkedIn/linkedin_us&utm_source=linkedin&utm_medium=jobposting&utm_campaign=contract | Google Cloud | Forward Deployed Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/GoogleCloud_ForwardDeployedDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://www.zoominfo.com/careers/jr107435/randd-engineer-ai-and-innovation?gh_src=d14a9e1e2&gh_jid=8534416002 | ZoomInfo | R&D Engineer - AI and Innovation | JD ✅ | Resume ✅ | Score 95/100
+- [x] https://motionrecruitment.com/tech-jobs/toronto/contract/senior-application-support-engineer-azure-and-ai-ml/873541?utm_source=linkedin&utm_medium=feed&utm_campaign=paid-20210428 | Motion Recruitment | Senior Application Support Engineer (Azure & AI/ML) | JD ✅ | Resume ✅ | Score 100/100
+- [x] https://www.kaseya.com/careers/jobs/id/5825003004/?gh_jid=5825003004 | Kaseya | Staff Backend Engineer SaaS Data and AI | JD ✅ | Resume ✅ | Score 95/100
+- [x] https://job-boards.greenhouse.io/nubank/jobs/7950924?gh_src=3c8e02de1 | Nubank | Staff Software Engineer -- Insurance | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Nubank_StaffSoftwareEngineerInsurance_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Software-Developer--Agentic-Evaluation-_26WD96920-1?src=JB-10065&source=LinkedIn | Autodesk | Software Developer Agentic Evaluation | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SoftwareDeveloperAgenticEvaluation_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://autodesk.wd1.myworkdayjobs.com/en-US/Ext/job/Toronto-ON-CAN/Senior-Software-AI-Developer_25WD94380-1 | Autodesk | Senior Software AI Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Autodesk_SeniorSoftwareAiDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151 | Fortinet | Intermediate Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Fortinet_IntermediateFullStackDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.lincolnelectric.com/job/Hamilton-Software-Developer-%28C%2C-Python%29-ON-L9H-7L8/1397777333/ | Lincoln Electric | Software Developer (C#, Python) | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/LincolnElectric_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ashbyhq.com/evenup/e1aa63e3-942e-4c31-b7ac-2d75970c6504?utm_source=wvmGBjmzQQ&source=linkedin | EvenUp | Engineering Manager, AI DocGen | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Evenup_EngineeringManagerAiDocgen_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://job-boards.greenhouse.io/evismart/jobs/4194057009?gh_src=hucqpo1b9us | Evismart | AI & Automation Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Evismart_AiAutomationEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://ats.rippling.com/en-CA/paper-careers/jobs/4059c630-dbf3-454f-8369-c43439b87f2a?jobSite=LinkedIn | Paper | Senior AI Engineer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/Paper_SeniorAiEngineer_Yash_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.smartrecruiters.com/UniversityHealthNetwork/744000128486724-machine-learning-specialist?trid=2d92f286-613b-4daf-9dfa-6340ffbecf73 | University Health Network | Machine Learning Specialist | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/yash/UniversityHealthNetwork_MachineLearningSpecialist_Yash_Anghan_Cover_Letter_2026-05-28.pdf
+- [x] https://careers.telus.com/job/Toronto-Senior-Cloud-AI-Software-Developer-(Remote)-ON/602147417/?source=LinkedIn | TELUS | Senior Cloud AI Software Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/yash/Telus_SeniorCloudAiSoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-28.pdf

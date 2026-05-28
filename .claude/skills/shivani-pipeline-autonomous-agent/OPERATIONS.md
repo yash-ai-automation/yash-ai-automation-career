@@ -90,11 +90,42 @@ Expected: all four units `active (running)`; today's Shivani runs < 20.
    Expected: `long-poll error` lines disappear within 30s; `/help` from Telegram responds within 2s.
 
 ## 4. Changing the cap
-Cap lives in the daily/weekly limits inside `services/pipeline-orchestrator.mjs` (`capLimits: { dailyMax: 20, weeklyMax: 100 }`) — shared with Yash. Commit and:
+Defaults are **50 daily / 250 weekly** (raised from 20/100 on 2026-05-28). Override via env vars in `/etc/shivani-pipeline/agent.env`:
+```
+CAP_DAILY_MAX=50
+CAP_WEEKLY_MAX=250
+```
+Leave the key out (or set empty) to use the default. Restart:
 ```bash
 systemctl --user restart shivani-pipeline-orchestrator
 ```
-Concurrency cap (workers across both tenants) is enforced at the operator level via the measured Q8 calculation in §1.4. Until the VPS is resized, keep the rule "no more than one Shivani worker AND one Yash worker simultaneously".
+Cap counters are tenant-local (Shivani DB only). Concurrency cap (workers across both tenants) is enforced at the operator level via the measured Q8 calculation in §1.4. Until the VPS is resized, keep the rule "no more than one Shivani worker AND one Yash worker simultaneously".
+
+## 4.1 Rate-limit auto-recovery (shared with Yash)
+
+The orchestrator detects Claude Max 5-hour usage-limit events from the `claude -p` output (regexes in `services/rate-limit.mjs`) and pauses **BOTH** tenants until the window resets. The state file at `/var/lib/claude-pipeline/rate-limit.json` (configurable via `RATE_LIMIT_STATE_PATH`) is the single source of truth — written by whichever daemon detects the limit first, read by both on every 2-second tick.
+
+**Per-deploy setup (one-time on the VPS):**
+```bash
+sudo mkdir -p /var/lib/claude-pipeline
+sudo chown yash:yash /var/lib/claude-pipeline
+sudo chmod 755 /var/lib/claude-pipeline
+```
+
+**Behavior:** when triggered the in-flight URL is re-queued with `attempts` unchanged and `runs.status='rate_limited'` (excluded from cap counting). Both Telegram chats get one `⏸️ Claude usage-limit window active until …` message per daemon process (no spam). When the window elapses, both bots emit one `▶️ resuming queue` message and processing continues.
+
+**Manual override (force-resume now):**
+```bash
+sudo rm -f /var/lib/claude-pipeline/rate-limit.json
+systemctl --user restart pipeline-orchestrator shivani-pipeline-orchestrator
+```
+Only do this if you have fresh quota — otherwise the very next URL will re-detect the limit and re-pause.
+
+**Audit:**
+```bash
+journalctl --user -u shivani-pipeline-orchestrator --since today --no-pager | grep -E 'rate_limit_hit|rate_limit_paused|rate_limit_window_reset'
+sqlite3 ops/shivani/work-queue.db "SELECT count(*), max(started_at) FROM runs WHERE status='rate_limited'"
+```
 
 ## 5. Manual cancellation
 ```bash
@@ -198,6 +229,12 @@ Documented in `ops/shivani/telegram.env.example`. Hot-only fields (no code chang
 | `FEATURE_EXPORTER` | `0` | Phase A — Langfuse traces tagged `shivani-resume-pipeline` (via `TENANT_TRACE_NAME`). |
 | `FEATURE_FAILURE_KB` | `0` | Phase B — failure-pattern KB + `$LEARNED_HINTS` injection, scoped to Shivani DB. |
 | `FEATURE_WATCHDOG` | `0` | Phase C — watchdog daemon + Healthchecks.io heartbeat. `TMP_CLEANUP_GLOB=/tmp/shivani-pipeline-*` keeps cleanup scoped. |
+| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Active model for `claude -p`. Override to `claude-opus-4-7` (or any valid alias) without code change. |
+| `CLAUDE_EFFORT` | `xhigh` | Maps to `--effort` flag (adaptive thinking budget). Set to `""` to drop the flag entirely if the installed CLI rejects it. |
+| `CLAUDE_FALLBACK_MODEL` | (unset) | Opt-in `--fallback-model`; covers HTTP 529 overloads only, NOT 5-hour usage-limit events. |
+| `CAP_DAILY_MAX` | `50` | Daily cap override (since 2026-05-28; previously hardcoded at 20). |
+| `CAP_WEEKLY_MAX` | `250` | Weekly cap override (since 2026-05-28; previously hardcoded at 100). |
+| `RATE_LIMIT_STATE_PATH` | `/var/lib/claude-pipeline/rate-limit.json` | Shared with Yash — both daemons read+write the same file so a usage-limit hit by either tenant pauses both. |
 
 ## 12. On-call playbook
 | Page | Action |
@@ -205,7 +242,8 @@ Documented in `ops/shivani/telegram.env.example`. Hot-only fields (no code chang
 | `🚨 work-queue.db corrupt, archived` (Shivani) | `sqlite3 ops/shivani/work-queue.db.corrupt-* '.dump'` for forensics; bring up a fresh DB; re-add lost URLs from Telegram history |
 | `❌ #N <hostname> failed at jd_fetch` (Shivani) | Open `resume-logs/shivani/<slug>.log` and `data/shivani-resume-runs.log`; if Scrapling 403 → retryable (3-strike auto-retry will try again); if mass failures → check `scrapling_fetch.py` and `.venv/bin/python3` |
 | `⚠️ Run #N failed (attempt N/3); re-queued` | Working as designed — 3-strike retry. After 3 strikes, the message ends with `attempt 3/3 — moving to failed`. |
-| `⏸️ Cap reached` | Working as designed; will resume tomorrow / next ISO week. Caps are shared with Yash since `capLimits` is hardcoded in `services/pipeline-orchestrator.mjs`. |
+| `⏸️ Cap reached` | Working as designed; will resume tomorrow / next ISO week. Cap counts are tenant-local (see `CAP_DAILY_MAX` / `CAP_WEEKLY_MAX` env knobs in §11.2; defaults 50/250 since 2026-05-28). |
+| `⏸️ Claude usage-limit window active until …` | Working as designed — Claude Max 5-hour window hit. Both bots are paused until the timestamp shown. State file: `/var/lib/claude-pipeline/rate-limit.json`. Force-resume only if you have fresh quota (§4.1). |
 | `OOM detected` | `dmesg \| tail -100`; if two `claude -p` workers overlapped, lower the Q8 cap. The `OOMScoreAdjust=-500` setting on `shivani-pipeline-orchestrator.service` biases the kernel to kill the child first. |
 | Shivani Telegram doesn't respond at all | `systemctl --user status shivani-telegram-listener`; if active, `journalctl --user -u shivani-telegram-listener` for `long-poll error`; if backoff still climbing, restart |
 | Yash agent regression after Shivani PR | Roll back ONLY Shivani: `systemctl --user disable --now shivani-*`. If Yash still broken, full-stack rollback per §9. |
@@ -222,6 +260,7 @@ Identical mechanism to the Yash agent — see the sibling `OPERATIONS.md` (repo 
 
 1. **Disjoint state.** Each tenant owns its own systemd units, env file, SQLite DB, audit log, preamble dir, queue MD, and output directory tree. A bug in one tenant cannot corrupt the other's state.
 2. **Shared code.** All `services/*.mjs` files are shared; tenant-specific behavior comes from env vars. If you need to change shared code, run BOTH tenants' tests (`npm run test:services && npm run test:e2e`) before deploying.
-3. **Concurrency.** Each tenant's `queue_one_running` UNIQUE index enforces single worker per DB. Across tenants, observe the Q8 cap of `floor((free_ram - 500MB) / measured_peak)` total `claude -p` Opus 4.7 workers.
+3. **Concurrency.** Each tenant's `queue_one_running` UNIQUE index enforces single worker per DB. Across tenants, observe the Q8 cap of `floor((free_ram - 500MB) / measured_peak)` total `claude -p` workers (now Sonnet 4.6 by default; memory profile is lighter than Opus 4.7).
+6. **Shared Claude Max quota.** Both bots run as the same OS user with the same Claude Max login on this VPS. The 5-hour usage limit is therefore shared. The rate-limit state file at `/var/lib/claude-pipeline/rate-limit.json` is the single coordination point — see §4.1.
 4. **Token isolation.** Shivani's bot token is separate from Yash's. Rotating one does not affect the other.
 5. **No cross-DB FK.** Neither orchestrator reads from the other's SQLite file. Cross-tenant observability is via journald + BetterStack tags only.

@@ -99,7 +99,7 @@ test('e2e: happy-path Shivani run uploads resume + cover-letter PDFs to the Shiv
           db, projectRoot: dir,
           capLimits: { dailyMax: 20, weeklyMax: 100 },
           gitSha: 'cafebabe',
-          claudeModel: 'claude-opus-4-7',
+          claudeModel: 'claude-sonnet-4-6',
           spawn: async ({ runId }) => ({
             exitCode: 0,
             durationMs: 480_000,

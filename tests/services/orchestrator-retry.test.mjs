@@ -37,7 +37,7 @@ const baseTick = (db, dir, overrides = {}) => ({
   db, projectRoot: dir,
   capLimits: { dailyMax: 20, weeklyMax: 100 },
   gitSha: 'cafebabe',
-  claudeModel: 'claude-opus-4-7',
+  claudeModel: 'claude-sonnet-4-6',
   ...overrides,
 });
 

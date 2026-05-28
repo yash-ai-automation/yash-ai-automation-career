@@ -57,7 +57,7 @@ test('Shivani shutdown_interrupt: queue/run/checkpoint stay intact when SIGTERM 
         db, projectRoot: dir,
         capLimits: { dailyMax: 20, weeklyMax: 100 },
         gitSha: 'cafebabe',
-        claudeModel: 'claude-opus-4-7',
+        claudeModel: 'claude-sonnet-4-6',
         spawn: async ({ runId }) => {
           // Simulate: claude reached resume_gen_end before SIGTERM.
           upsertCheckpoint(db, { runId, lastPhase: 'resume_gen_end', inputsPath: '/tmp/shivani-pipeline-sh1.json' });

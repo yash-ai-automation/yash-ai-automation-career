@@ -1,23 +1,4 @@
 ## Pendientes
-- [ ] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-0965&BRID=1300665&SBDID=1&searchFilled=
-- [ ] https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a
-- [ ] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208
-- [ ] https://www.oncoustics.com/careers-post/full-stack
-- [ ] https://barringtongrp.ca/careers/senior-full-stack-developer/
-- [ ] https://www.konrad.com/careers/job/full-stack-developer_6545898003
-- [ ] https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp
-- [ ] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer
-- [ ] https://www.cofomo.com/en/jobs/84756
-- [ ] https://www.cofomo.com/en/jobs/84576
-- [ ] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk
-- [ ] https://foci.bamboohr.com/careers/17
-- [ ] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371
-- [ ] https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=3d178141-59e5-45ba-a347-db3cfa0b5d08&ccId=19000101_000001&jobId=562338&lang=en_CA&source=CC2&selectedMenuKey=CurrentOpenings
-- [ ] https://careers.purolator.com/job/Kitchener-Technology-Software-Developer-ON-N2B-3E5/1392781100/
-- [ ] https://job-boards.greenhouse.io/dialpad/jobs/8407048002
-- [ ] https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097
-- [ ] https://www.scispot.com/jobs/full-stack-developer
-- [ ] https://www.ascensionas.ca/jobs/software-developer
 
 
 ## Procesadas
@@ -58,5 +39,42 @@
 - [x] https://rbr-global.com/about-rbr/careers/#%23job-2603452 | RBR | Senior Software Developer | JD ✅ | Resume ✅ | Score 90/100 | CL ✅ | cover-letters/shivani/Rbr_SeniorSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-23.pdf
 - [x] https://job-boards.greenhouse.io/faire/jobs/8437749002?gh_jid=8437749002 | Faire | Backend Engineer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Faire_BackendEngineer_Shivani_Anghan_Cover_Letter_2026-05-23.pdf
 - [x] https://cgi.njoyn.com/Corp/xweb/XWeb.asp?NTKN=c&clid=21001&Page=JobDetails&Jobid=J0526-1713&BRID=1302303&SBDID=1&searchFilled= | CGI | Java/DevOps Analyst-Developer (Intermediate) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_JavaDevopsAnalystDeveloper_Shivani_Anghan_Cover_Letter_2026-05-24.pdf
-
-
+- [x] https://barringtongrp.ca/careers/senior-full-stack-developer/ | Barrington Group | Senior Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarringtonGroup_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://careers.hellofresh.com/global/en/job/HELLGLOBAL7408822EXTERNALENGLOBAL/Backend-Engineer-Consumer?utm_source=linkedin&utm_medium=phenom-feeds | HelloFresh | Backend Engineer, Consumer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Hellofresh_BackendEngineerConsumer_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://aviva.wd1.myworkdayjobs.com/en-US/External/job/Markham/Senior-Full-stack-Developer_R-169070 | Aviva | Sr Full stack Developer - Java, Spring Boot | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Aviva_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://careers.societegenerale.com/en/job-offers/senior-developer-fullstack-java-react-25000LQD-en | Societe Generale | Senior Developer Fullstack (Java/React) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/SocieteGenerale_SeniorDeveloperFullstack_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://jobs.toronto.ca/jobsatcity/job/Toronto-Senior-Technical-Support-Specialist-1-ON-M5V-3C6/602616717/?utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic | City of Toronto | Senior Technical Support Specialist 1 | JD ✅ | Resume ✅ | Score 82/100 | CL ✅ | cover-letters/shivani/CityOfToronto_SeniorTechnicalSupportSpecialist1_Shivani_Anghan_Cover_Letter_2026-05-25.pdf
+- [x] https://jobs.citi.com/job/-/-/287/94689637440?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Senior Java Backend Developer | JD ✅ | Resume ✅ | Score 88/100 | CL ✅ | cover-letters/shivani/Citi_SeniorJavaBackendDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.citi.com/job/-/-/287/93810356576?source=APPLICANT_SOURCE-3-354&utm_medium=job_posting&utm_campaign=nam_experienced&utm_content=social_media&utm_term=393702677&ss=paid&utm_source=linkedin | Citi | Senior Java Developer - Assistant Vice President | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Citi_SeniorJavaDeveloperAssistantVicePresident_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [~] https://career17.sapsf.com/career?career%5fns=job%5flisting&company=TTCPRODUCTION&navBarLevel=JOB%5fSEARCH&rcm%5fsite%5flocale=en%5fUS&career_job_req_id=12935&selected_lang=en_US&jobAlertController_jobAlertId=&jobAlertController_jobAlertName=&browserTimeZone=America/New_York&_s.crb=5mJ7JcNkd17DB69HXhYlv%2bkVbmBf42nS9dU1yfnzRwE%3d — skipped: duplicate (jd+pdf already exist)
+- [x] https://easyapply.co/a/63575a25-e592-4ba6-a2be-38f529bbb36a | Snaplii | Sr. Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Snaplii_SrJavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://fa-euxc-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/15660/?keyword=Developer&mode=location | Citco | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Citco_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://effx.fa.ca2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/AlithyaCareersCarrieres/job/1208 | Alithya | Full-Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Alithya_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.oncoustics.com/careers-post/full-stack | Oncoustics | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Oncoustics_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.konrad.com/careers/job/full-stack-developer_6545898003 | Konrad | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Konrad_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://flexspring.bamboohr.com/careers/58 | Flexspring | Java Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Flexspring_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://morganstanley.eightfold.ai/careers?start=0&pid=549796919503&sort_by=timestamp | Morgan Stanley | Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/MorganStanley_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://renaps.com/en/cats/developpeur-full-stack-fullstack-developer | Renaps | Fullstack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Renaps_FullstackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://flexspring.bamboohr.com/careers/53 | Flexspring | Technical Support Specialist | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Flexspring_TechnicalSupportSpecialist_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.cofomo.com/en/jobs/84756 | COFOMO | Full Stack Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_FullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://www.cofomo.com/en/jobs/84576 | COFOMO | Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cofomo_JavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.jobvite.com/barracuda-networks-inc/job/omROzfwk | Barracuda Networks | Senior Software Developer in Test | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/BarracudaNetworks_SeniorSoftwareDeveloperInTest_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://efds.fa.em5.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/63371 | Ford of Canada | Software Developer | JD ✅ | Resume ✅ | Score 85/100 | CL ✅ | cover-letters/shivani/FordOfCanada_SoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://careers.purolator.com/job/Kitchener-Technology-Software-Developer-ON-N2B-3E5/1392781100/ | Purolator | Technology Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Purolator_TechnologySoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://job-boards.greenhouse.io/dialpad/jobs/8407048002 | Dialpad | Software Development Engineer in Test | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Dialpad_SoftwareDevelopmentEngineerInTest_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://bb.wd3.myworkdayjobs.com/en-US/BlackBerry/job/Waterloo-Ontario/Intermediate-Applications-Software-Developer_20260097 | BlackBerry | Intermediate Applications Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/Blackberry_IntermediateApplicationsSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [~] https://www.scispot.com/jobs/full-stack-developer — skipped: duplicate (jd+pdf already exist)
+- [x] https://www.ascensionas.ca/jobs/software-developer | Ascension Automation Solutions | Software Developer | JD ✅ | Resume ✅ | Score 92/100 | CL ✅ | cover-letters/shivani/AscensionAutomationSolutions_SoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.rbc.com/ca/en/job/RBCAA0088R0000170276EXTERNALENCA/Senior-Full-Stack-Developer-Java-Angular?utm_source=LinkedIn&utm_medium=phenom-feeds&utm_campaign=rbc_linkedin | RBC | Senior Full-Stack Developer (Java/Angular) | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Rbc_SeniorFullStackDeveloper_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.ashbyhq.com/homebase/39944404-94b9-4fd5-8522-181a8a09aa2a?utm_source=unique_code%2C+e.g.+utm_source%3DLinkedInPaid | Homebase | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Homebase_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://jobs.scotiabank.com/job/Toronto-Senior-Software-Engineer-ON-M1H3G2/600216617/?feedId=354060&utm_source=LinkedInJobPostings&utm_campaign=ScotiaBank_Linkedin | Scotiabank | Senior Software Engineer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Scotiabank_SeniorSoftwareEngineer_Shivani_Anghan_Cover_Letter_2026-05-26.pdf
+- [x] https://autodesk.wd1.myworkdayjobs.com/Ext/job/Toronto-ON-CAN/Senior-Software-Developer_26WD98132?src=JB-10065&source=LinkedIn | Autodesk | Senior Software Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Autodesk_SeniorSoftwareDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://www.vanguardjobs.com/job/23424939/?source=LinkedIn | Vanguard | Investment Systems Application Engineer - IV | JD ✅ | Resume ✅ | Score 4/100 | CL ✅ | cover-letters/shivani/Vanguard_InvestmentSystemsApplicationEngineerIv_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0072044EXTERNALENUS/Sr-SWE-MTS-1-Backend-eBay-Live?utm_source=linkedin&utm_medium=phenom-feeds | eBay | Sr. SWE - MTS 1, Backend eBay Live | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Ebay_SrSweMts1BackendEbayLive_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://jobs.ebayinc.com/us/en/job/EBAEBAUSR0074237EXTERNALENUS/Software-Engineer-3-Backend?utm_source=linkedin&utm_medium=phenom-feeds | eBay | Software Engineer 3, Backend | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Ebay_SoftwareEngineer3Backend_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://careers.toasttab.com/jobs/senior-software-engineer-care-experience-toronto-ontario-canada?gh_jid=7888090&gh_src=dbd19ebc1 | Toast | Senior Software Engineer, Care Experience | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Toast_SeniorSoftwareEngineerCareExperience_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://apply.appcast.io/jobs/53899595281/applyboard/apply?cs=jj7&sjg=8kvf&source=LinkedIn&ccuid=72015277127&ua=4&__ssr=true | OPENLANE | Full-Stack Engineer | JD ✅ | Resume ✅ | Score 80/100 | CL ✅ | cover-letters/shivani/Openlane_FullStackEngineer_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://job-boards.greenhouse.io/behavox/jobs/7959479 | Behavox | Senior Java Developer | JD ✅ | Resume ✅ | Score 91/100
+- [x] https://desjardins.wd10.myworkdayjobs.com/en-US/Desjardins/job/Montral/Dveloppeur-ou-dveloppeuse--Java-Spring_R2506499-1 | Desjardins | Java Spring Developer | JD ✅ | Resume ✅ | Score 100/100 | CL ✅ | cover-letters/shivani/Desjardins_JavaSpringDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://cgi.njoyn.com/Corp/xweb/xweb.asp?CLID=21001&page=jobdetails&JobID=J0526-1936&lang=1 | CGI | Senior Full Stack Java Developer | JD ✅ | Resume ✅ | Score 95/100 | CL ✅ | cover-letters/shivani/Cgi_SeniorFullStackJavaDeveloper_Shivani_Anghan_Cover_Letter_2026-05-27.pdf
+- [x] https://edel.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2001/job/21151 | Fortinet | Intermediate Full Stack Developer | JD ✅ | Resume ✅ | Score 100/100
