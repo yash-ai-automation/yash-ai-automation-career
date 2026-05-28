@@ -313,3 +313,45 @@ The change is additive — code defaults preserve old behavior when the new env 
 6. `node test-all.mjs` → all green.
 7. Commit with two commits (1: services + tests; 2: env templates + docs) so a reviewer can see the surface-area split. Open PR with the failure modes + the deploy block above in the body.
 8. After PR is merged on `main`, ping the operator to run the live-deploy block.
+
+---
+
+## Deploy result (filled in 2026-05-28 by the executing session)
+
+**PR merge:** [#19 `1cfc51a`](https://github.com/yash-ai-automation/yash-ai-automation-career/pull/19) — squash-merged 2026-05-28T02:31:28Z. Plan executed verbatim — 18 files changed, 1622 insertions, 35 deletions.
+
+**Test gate before push:**
+- `npm run test:services` → **305/305 pass** (baseline 259 + 46 new)
+- `npm run test:e2e` → 9/10 (1 pre-existing failure on `main`, NOT caused by this change: `shivani-delivery` happy-path expects a JD file the fake spawn doesn't stage)
+- `node test-all.mjs` → 72/2 (2 pre-existing failures on `main`: `verify-pipeline.mjs` crashes on stale tracker rows; `Dashboard build` depends on it)
+- `bash tools/check-secrets.sh` → clean
+
+**Live deploy block executed on yash@srv944193 at 02:34Z:**
+```
+sudo mkdir -p /var/lib/claude-pipeline ; sudo chown yash:yash ... ; sudo chmod 755 ...
+# Appended CLAUDE_MODEL/CLAUDE_EFFORT/RATE_LIMIT_STATE_PATH to /etc/yash-pipeline/agent.env
+# Replaced stale CLAUDE_MODEL line + appended same block to /etc/shivani-pipeline/agent.env
+systemctl --user restart pipeline-orchestrator shivani-pipeline-orchestrator
+```
+
+Post-restart `bot_online` for both: `git_sha=1cfc51a... claude_model=claude-sonnet-4-6` ✅.
+
+**Smoke test #1 (5-min pause window):** Wrote `/var/lib/claude-pipeline/rate-limit.json` with `resetAt = now + 5 min`. Both daemons immediately ticked `tick_rate_limit_paused`, no spam (one notification per daemon, then silent log-only ticks every 2 s). After the window elapsed:
+- ❌ **Yash logged `rate_limit_window_reset` and deleted the file — but Shivani's next tick read `rl=null` and silently resumed with NO resume notification.** Race observed live.
+
+**Hotfix in [#20 `849124d`](https://github.com/yash-ai-automation/yash-ai-automation-career/pull/20):** Added per-daemon `tickState.wasPausedLastTick`. The resume branch now runs on EVERY non-paused tick and notifies whenever the daemon's prior tick was paused — regardless of which daemon won the deletion race. 2 new test cases in `orchestrator-rate-limit.test.mjs` cover (a) the second-daemon-catches-up scenario and (b) the never-paused-no-phantom-resume guard. Full suite **307/307**.
+
+**Smoke test #2 (post-hotfix, 3-min pause window):** Both daemons emitted resume events at 02:52:17Z:
+- Shivani (won race): `event=rate_limit_window_reset`
+- Yash: `event=rate_limit_resume_observed` ("pause cleared by another tenant; queue resumed")
+
+State file deleted. ✅ Both Telegram chats receive their own resume notification exactly once.
+
+**Cap-spam regression:** Verified during smoke test #1: the daemons logged `tick_rate_limit_paused` every 2 s (expected — log line) but emitted the Telegram pause notification only ONCE per daemon (verified by the absence of repeated `⏸️` POSTs to the Bot API in the journald lines). The cap-spam dedup primitive itself is exhaustively covered by the 11 unit tests in `notify-dedup.test.mjs` and 3 E2E tests in `orchestrator-cap-spam.test.mjs`.
+
+**Outstanding (operator action required):**
+1. **Canary live URL through each bot's `/add`.** The Telegram → listener → queue → orchestrator → `claude -p` → PDFs → Telegram round-trip can only be validated by the operator sending an actual Telegram message; the CC session cannot simulate it. Send `/add <known-good-job-URL>` to each bot and confirm Sonnet 4.6 + `--effort xhigh` runs the full V2.0/V3.1 pipeline end-to-end and the resume + cover letter PDFs land in the chat.
+
+**Final commits on `main` from this work:**
+- `849124d` fix(orchestrator): both daemons emit rate-limit resume (race fix) (#20)
+- `1cfc51a` Rate-limit auto-recovery + Sonnet 4.6 + cap 50 + cap-spam fix (#19)
