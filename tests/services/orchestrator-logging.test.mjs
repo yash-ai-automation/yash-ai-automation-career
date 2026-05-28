@@ -51,7 +51,7 @@ test('tickOnce: logs structured spawn_start with queue_id and url on success', a
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 0, durationMs: 100, slug: 'X', score: 80 }),
       notify: () => {},
       logger: sink.logger,
@@ -73,7 +73,7 @@ test('tickOnce: logs structured run_failed on non-zero exit (with error field)',
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 11, error: 'tectonic exit 11', failedPhase: 'resume_compile_end' }),
       notify: () => {},
       logger: sink.logger,
@@ -100,7 +100,7 @@ test('resumeInFlightRun: logs structured error when inputs JSON is corrupt', asy
     const sink = makeSinkLogger();
     await resumeInFlightRun({
       db, projectRoot: dir, dbPath: join(dir, 'ops/work-queue.db'),
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       notify: () => {},
       recovery: {
         state: 'resume', queueId: 1, runId, url: 'https://x/y', urlHash: 'hxy',

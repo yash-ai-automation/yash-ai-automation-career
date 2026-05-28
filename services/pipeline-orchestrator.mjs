@@ -20,7 +20,17 @@ import {
 } from './queue.mjs';
 import { checkCap } from './cap.mjs';
 import { analyzeRebootState, computeNextPhase, PHASE_ORDER } from './reboot-resume.mjs';
-import { formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd, formatCancelled, formatSkipped } from './notifier.mjs';
+import {
+  formatStart, formatSuccess, formatFailure, formatCapReached, formatPhaseEnd,
+  formatCancelled, formatSkipped, formatRateLimitPaused, formatRateLimitResumed,
+} from './notifier.mjs';
+import {
+  detectRateLimit, readState, writeState, clearState, defaultResetAt,
+  RATE_LIMIT_STATE_PATH,
+} from './rate-limit.mjs';
+import {
+  createNotifyDedup, msUntilEndOfUtcDay, msUntilEndOfUtcWeek,
+} from './notify-dedup.mjs';
 import { notifyReady, notifyStopping, startWatchdogPinger } from './sd-notify.mjs';
 import { createLogger } from './logger.mjs';
 import { assertTenantDbConsistency } from './telegram-listener.mjs';
@@ -36,6 +46,12 @@ const defaultLogger = createLogger({
   service: 'pipeline-orchestrator',
   tenant: (process.env.TENANT || '').trim().toLowerCase() || undefined,
 });
+
+// ── Notification de-duplication ─────────────────────────────────────────────
+// Module-level singleton so the cap-reached + rate-limit-paused messages
+// emit at most once per window per daemon process. Tests inject their own
+// instance via `tickOnce({ notifyDedup })`.
+const defaultNotifyDedup = createNotifyDedup();
 
 // ── Healthchecks.io heartbeat ────────────────────────────────────────────────
 // Opt-in: set HEALTHCHECK_PING_URL to a Healthchecks.io ping URL.
@@ -212,13 +228,49 @@ export function formatInputsSummary(inputs) {
     .join('\n');
 }
 
-export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify, isShuttingDown = () => false, notifyChatId = 0, logger = defaultLogger }) {
+export async function tickOnce({
+  db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify,
+  isShuttingDown = () => false, notifyChatId = 0, logger = defaultLogger,
+  notifyDedup = defaultNotifyDedup, rateLimitStatePath = RATE_LIMIT_STATE_PATH,
+}) {
+  // ── Global rate-limit guard ───────────────────────────────────────────────
+  // Runs BEFORE checkCap so a 5-hour Max window pause supersedes the daily/
+  // weekly cap accounting. Both tenants share the same JSON state file under
+  // /var/lib/claude-pipeline/, so one tenant hitting the limit pauses both.
+  const rl = readState(rateLimitStatePath);
+  if (rl) {
+    const nowMs = Date.now();
+    const resetMs = rl.resetAt.getTime();
+    if (nowMs < resetMs) {
+      const windowMs = Math.max(resetMs - nowMs, 60_000); // floor at 60s so we don't spam
+      if (notifyDedup.shouldEmit('rate_limit:paused', windowMs)) {
+        notify(formatRateLimitPaused({ resetAt: rl.resetAt }));
+      }
+      logger.info({
+        event: 'tick_rate_limit_paused',
+        reset_at: rl.resetAt.toISOString(),
+        reason: rl.reason,
+        set_by: rl.setBy,
+      }, 'rate-limit window active; queue paused');
+      return { action: 'rate_limit_paused' };
+    }
+    // Window elapsed — clear state, unpause any rows the watchdog paused, notify once.
+    clearState(rateLimitStatePath);
+    db.prepare(`UPDATE queue SET paused=0 WHERE paused=1`).run();
+    notifyDedup.reset('rate_limit:paused');
+    notify(formatRateLimitResumed());
+    logger.info({ event: 'rate_limit_window_reset' }, 'rate-limit window elapsed; queue resumed');
+  }
+
   const cap = checkCap(db, capLimits);
   const next = selectNextQueued(db);
   if (!next && !cap.capped) { logger.debug({ event: 'tick_idle' }, 'no work'); return { action: 'idle' }; }
   if (next && cap.capped) {
     logger.info({ event: 'tick_capped', cap_window: cap.window, cap_count: cap.count }, 'cap reached');
-    notify(formatCapReached(cap));
+    const windowMs = cap.reason === 'weekly' ? msUntilEndOfUtcWeek() : msUntilEndOfUtcDay();
+    if (notifyDedup.shouldEmit(`cap:${cap.reason}`, windowMs)) {
+      notify(formatCapReached(cap));
+    }
     return { action: 'capped' };
   }
 
@@ -261,6 +313,49 @@ export async function tickOnce({ db, projectRoot, capLimits, gitSha, claudeModel
     runLog.info({ event: 'shutdown_interrupt', last_phase: lastPhase }, 'paused for shutdown; will resume next boot');
     notify(`⏸️ Run #${runId} paused at \`${lastPhase}\` due to shutdown; will resume on next boot.`);
     return { action: 'shutdown_interrupt', runId, lastPhase };
+  }
+
+  // ── Rate-limit detection ──────────────────────────────────────────────────
+  // If realSpawn detected a usage-limit signature in claude.log, treat it as a
+  // quota event (NOT a 3-strike failure): write the shared state file so both
+  // tenants pause, re-queue the URL WITHOUT consuming an attempt, write
+  // runs.status='rate_limited' (excluded from cap.mjs's CAPPED_STATUSES),
+  // notify once with dedup, and bail. The next tick reads the state file and
+  // returns action='rate_limit_paused' until the window elapses.
+  if (result.rateLimitHit) {
+    const detected = result.rateLimitResetAt;
+    const resetAt = (detected instanceof Date && !Number.isNaN(detected.getTime()))
+      ? detected
+      : defaultResetAt();
+    try {
+      writeState(rateLimitStatePath, {
+        resetAt,
+        reason: 'claude-cli usage limit',
+        setBy: (process.env.TENANT || 'yash').toLowerCase(),
+      });
+    } catch (e) {
+      runLog.error({ event: 'rate_limit_state_write_failed', err: e.message, path: rateLimitStatePath }, 'failed to write rate-limit state file — pause will not propagate across daemons');
+      // Continue anyway — the in-memory dedup + audit row still prevent same-daemon spam.
+    }
+    // Re-queue the row without consuming an attempt (the URL itself is healthy).
+    db.prepare(`UPDATE queue SET status='queued', assigned_at=NULL WHERE id=?`).run(next.id);
+    updateRunEnd(db, runId, {
+      endedAt, status: 'rate_limited',
+      error: 'claude-cli usage limit detected',
+      phaseTimingsJson: result.phaseTimingsJson,
+    });
+    deleteCheckpoint(db, runId);
+    runLog.warn({
+      event: 'rate_limit_hit',
+      reset_at: resetAt.toISOString(),
+      queue_id: next.id,
+      run_id: runId,
+    }, 'rate limit detected; re-queued without consuming an attempt');
+    const windowMs = Math.max(resetAt.getTime() - Date.now(), 60_000);
+    if (notifyDedup.shouldEmit('rate_limit:paused', windowMs)) {
+      notify(formatRateLimitPaused({ resetAt }));
+    }
+    return { action: 'rate_limited', runId };
   }
 
   if (result.exitCode === 0) {
@@ -448,13 +543,28 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   const eventsPath = join(runDir, 'events.jsonl');
   const logStream = createWriteStream(claudeLogPath);
 
-  const child = nodeSpawn('claude', [
+  // Build claude-cli argv. --effort defaults to 'xhigh' (Sonnet 4.6 adaptive
+  // thinking budget); operator can disable by setting CLAUDE_EFFORT="" in the
+  // env file. --fallback-model is opt-in only via CLAUDE_FALLBACK_MODEL —
+  // it covers 529 overloads, NOT 5-hour usage-limit events (those go through
+  // the rate-limit branch in tickOnce).
+  const claudeArgs = [
     '-p', preamble,
     '--print',
     '--dangerously-skip-permissions',
     '--add-dir', projectRoot,
     '--model', claudeModel,
-  ], {
+  ];
+  const effortRaw = process.env.CLAUDE_EFFORT;
+  const effort = effortRaw === undefined ? 'xhigh' : effortRaw.trim();
+  if (effort) {
+    claudeArgs.push('--effort', effort);
+  }
+  const fallback = (process.env.CLAUDE_FALLBACK_MODEL || '').trim();
+  if (fallback) {
+    claudeArgs.push('--fallback-model', fallback);
+  }
+  const child = nodeSpawn('claude', claudeArgs, {
     cwd: projectRoot,
     env: {
       ...process.env,
@@ -528,6 +638,23 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }
 
+  // Scan the tail of claude.log for usage-limit signatures. Only run when
+  // exitCode != 0 (a successful run has no quota signal). 8 KiB tail covers
+  // the last ~50 lines, more than enough for any sensible error banner.
+  let rateLimitHit = false;
+  let rateLimitResetAt = null;
+  if (exit.code !== 0 && existsSync(claudeLogPath)) {
+    try {
+      const tail = readFileSync(claudeLogPath, 'utf8').slice(-8192);
+      const rl = detectRateLimit(tail);
+      rateLimitHit = rl.hit;
+      rateLimitResetAt = rl.resetAt;
+    } catch {
+      // Best-effort — a missing/unreadable log just leaves rateLimitHit=false
+      // and the failure flows through the normal 3-strike retry.
+    }
+  }
+
   return {
     exitCode: exit.code === null ? 124 : exit.code,
     durationMs: parsed?.total_ms ?? null,
@@ -542,6 +669,9 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     // verifyRunArtifacts + skip-vs-success branching in tickOnce keys on these.
     isSkip: parsed?.status === 'skip',
     skipReason: parsed?.reason ?? null,
+    // Rate-limit signal — tickOnce reads these to branch into the quota-pause path.
+    rateLimitHit,
+    rateLimitResetAt,
   };
 }
 
@@ -699,7 +829,7 @@ async function main() {
     process.exit(3);
   }
 
-  const claudeModel = process.env.CLAUDE_MODEL || 'claude-opus-4-7';
+  const claudeModel = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
   const gitSha = execSync('git rev-parse HEAD', { cwd: projectRoot }).toString().trim();
   const notifyChatId = parseInt(process.env.TELEGRAM_NOTIFY_CHAT_ID || '0', 10);
 
@@ -807,7 +937,9 @@ async function main() {
     try {
       tickResult = await tickOnce({
         db, projectRoot,
-        capLimits: { dailyMax: 20, weeklyMax: 100 },
+        // capLimits intentionally omitted — checkCap reads CAP_DAILY_MAX /
+        // CAP_WEEKLY_MAX env vars (default 50/250) so the operator can
+        // change the budget without a redeploy.
         gitSha, claudeModel,
         // dbPath is in closure scope; pass it explicitly so realSpawn gets it without
         // mutating the db object (node:sqlite DatabaseSync has no .location property).

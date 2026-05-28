@@ -40,7 +40,7 @@ test('tickOnce: idle when queue empty', async () => {
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'deadbee',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => { throw new Error('should not spawn'); },
       notify: (msg) => notifications.push(msg),
     });
@@ -59,7 +59,7 @@ test('tickOnce: spawns when queued, returns ok on clean exit', async () => {
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async ({ url, runId }) => ({ exitCode: 0, durationMs: 1000, slug: 'Acme_Job', score: 91, ...artifacts }),
       notify: (msg) => notifications.push(msg),
     });
@@ -85,7 +85,7 @@ test('tickOnce: marks failed and notifies on non-zero exit (after 3 strikes — 
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 1, durationMs: 2000, error: 'tectonic exit 11', failedPhase: 'resume_compile_end' }),
       notify: (msg) => notifications.push(msg),
     });
@@ -114,7 +114,7 @@ test('tickOnce: when cap reached, leaves queue alone and notifies once', async (
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => { throw new Error('should not spawn when capped'); },
       notify: (msg) => notifications.push(msg),
     });
@@ -134,7 +134,7 @@ test('tickOnce: shutdown_interrupt — preserves queue/run/checkpoint when spawn
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       // Simulate: orchestrator received SIGTERM while claude was running.
       // spawn returns non-zero exit AND isShuttingDown returns true.
       spawn: async ({ runId }) => {
@@ -174,7 +174,7 @@ test('tickOnce: shutdown_interrupt does NOT fire when user cancelled the run (ca
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 143, error: 'sigterm via cancel' }),
       notify: (msg) => notifications.push(msg),
       isShuttingDown: () => true,
@@ -195,7 +195,7 @@ test('tickOnce: skips PDF upload when notifyChatId is 0 (test default), still ma
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: () => {},
       // Default notifyChatId=0 → upload should be skipped, no telegram-client import attempted.
@@ -235,7 +235,7 @@ test('tickOnce: when notifyChatId is set, sendDocument receives it (regression f
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: () => {},
       notifyChatId: 999000111,  // fake numeric chatId for test (never use a real one — secret scanner flags it as PII).
@@ -264,7 +264,7 @@ test('tickOnce: shutdown_interrupt does NOT fire when spawn exits cleanly (succe
       db, projectRoot: dir,
       capLimits: { dailyMax: 20, weeklyMax: 100 },
       gitSha: 'cafebabe',
-      claudeModel: 'claude-opus-4-7',
+      claudeModel: 'claude-sonnet-4-6',
       spawn: async () => ({ exitCode: 0, slug: 'Acme', score: 90, ...artifacts }),
       notify: (msg) => notifications.push(msg),
       // Even though shutdown is in progress, success completes normally.

@@ -49,6 +49,23 @@ export function formatCapReached({ reason, count, limit }) {
   return `⏸️ Cap reached (${reason}: ${count}/${limit}). New URLs will wait.`;
 }
 
+// Emitted ONCE per 5-hour Claude Max window when the orchestrator detects a
+// usage-limit response from `claude -p`. The orchestrator pauses both tenants
+// globally; the resetAt timestamp tells the user when work will resume.
+export function formatRateLimitPaused({ resetAt }) {
+  const when = resetAt instanceof Date ? resetAt : new Date(resetAt);
+  // Two formats: ISO for log-friendliness, then HH:MM UTC for at-a-glance read.
+  const iso = when.toISOString();
+  const hhmm = `${String(when.getUTCHours()).padStart(2, '0')}:${String(when.getUTCMinutes()).padStart(2, '0')}`;
+  return `⏸️ Claude usage-limit window active until ${iso} (≈${hhmm} UTC); queue paused for all tenants.`;
+}
+
+// Emitted ONCE when the pause window has elapsed and the orchestrator clears
+// the shared state file. The next tick resumes normal cap-checked processing.
+export function formatRateLimitResumed() {
+  return `▶️ Claude usage-limit window has reset; resuming queue.`;
+}
+
 export function formatCancelled({ runId, queueId }) {
   return `🛑 Cancelled #${runId ?? queueId}`;
 }
