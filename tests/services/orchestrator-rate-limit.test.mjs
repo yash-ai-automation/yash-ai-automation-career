@@ -237,3 +237,105 @@ test('tickOnce: rate-limit without resetAt hint falls back to defaultResetAt (~5
       `expected resetAt ≈ +5h from now, got +${(offsetMs / 1000).toFixed(0)}s`);
   } finally { cleanup(); }
 });
+
+test('tickOnce: BOTH daemons emit resume notification, even when only one deletes the state file', async () => {
+  // Regression: a 2026-05-28 live smoke-test revealed that when Yash's tick
+  // observed the elapsed window first and called clearState(), Shivani's
+  // next tick read rl=null and silently skipped the resume notification.
+  // The fix tracks per-daemon `wasPausedLastTick` so each daemon emits its
+  // own resume regardless of which one won the file-deletion race.
+  const { db, dir, statePath, cleanup } = fresh();
+  try {
+    insertQueueRow(db, { url: 'http://x.com/job', urlHash: 'h1', addedBy: 1 });
+
+    // Simulate two daemons sharing the same state file but with their own
+    // tickState + notifyDedup + notify spy.
+    const yashState = { wasPausedLastTick: false };
+    const shivaniState = { wasPausedLastTick: false };
+    const yashDedup = createNotifyDedup();
+    const shivaniDedup = createNotifyDedup();
+    const yashNotifs = [];
+    const shivaniNotifs = [];
+
+    // Phase 1: state file written with FUTURE resetAt — both daemons tick
+    // and see paused.
+    writeState(statePath, {
+      resetAt: new Date(Date.now() + 60_000),
+      reason: 'seed', setBy: 'test',
+    });
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => { throw new Error('no spawn during pause'); },
+      notify: (m) => yashNotifs.push(m),
+      notifyDedup: yashDedup, rateLimitStatePath: statePath, tickState: yashState,
+    });
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => { throw new Error('no spawn during pause'); },
+      notify: (m) => shivaniNotifs.push(m),
+      notifyDedup: shivaniDedup, rateLimitStatePath: statePath, tickState: shivaniState,
+    });
+    assert.equal(yashState.wasPausedLastTick, true);
+    assert.equal(shivaniState.wasPausedLastTick, true);
+    assert.equal(yashNotifs.filter(n => /⏸️/.test(n)).length, 1);
+    assert.equal(shivaniNotifs.filter(n => /⏸️/.test(n)).length, 1);
+
+    // Phase 2: window elapses. Yash ticks FIRST and wins the deletion race.
+    writeState(statePath, {
+      resetAt: new Date(Date.now() - 1000), // past
+      reason: 'seed', setBy: 'test',
+    });
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => ({ exitCode: 0, durationMs: 1, slug: 'x', score: 0, isSkip: true }),
+      notify: (m) => yashNotifs.push(m),
+      notifyDedup: yashDedup, rateLimitStatePath: statePath, tickState: yashState,
+    });
+    // File should now be gone
+    assert.equal(readState(statePath), null, 'Yash should have deleted the state file');
+    assert.equal(yashState.wasPausedLastTick, false, 'Yash flips its own flag');
+    assert.equal(yashNotifs.filter(n => /▶️/.test(n)).length, 1, 'Yash emits resume');
+
+    // Phase 3: Shivani's next tick — file is gone, but Shivani was paused.
+    // The fix must catch this case and emit Shivani's resume notification.
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => ({ exitCode: 0, durationMs: 1, slug: 'x', score: 0, isSkip: true }),
+      notify: (m) => shivaniNotifs.push(m),
+      notifyDedup: shivaniDedup, rateLimitStatePath: statePath, tickState: shivaniState,
+    });
+    assert.equal(shivaniState.wasPausedLastTick, false, 'Shivani flips its flag');
+    assert.equal(shivaniNotifs.filter(n => /▶️/.test(n)).length, 1,
+      'Shivani MUST emit resume even though Yash deleted the file first');
+
+    // Phase 4: subsequent Shivani ticks should NOT re-emit resume
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => ({ exitCode: 0, durationMs: 1, slug: 'x', score: 0, isSkip: true }),
+      notify: (m) => shivaniNotifs.push(m),
+      notifyDedup: shivaniDedup, rateLimitStatePath: statePath, tickState: shivaniState,
+    });
+    assert.equal(shivaniNotifs.filter(n => /▶️/.test(n)).length, 1,
+      'Shivani should NOT re-emit resume on later ticks');
+  } finally { cleanup(); }
+});
+
+test('tickOnce: daemon that never paused does NOT emit a resume notification', async () => {
+  // If a daemon boots fresh AFTER a pause window already cleared (e.g. crashed
+  // and restarted mid-pause), its wasPausedLastTick starts at false and it
+  // should NOT emit a phantom resume.
+  const { db, dir, statePath, cleanup } = fresh();
+  try {
+    insertQueueRow(db, { url: 'http://x.com/job', urlHash: 'h1', addedBy: 1 });
+    const tickState = { wasPausedLastTick: false };
+    const notifs = [];
+    await tickOnce({
+      db, projectRoot: dir, gitSha: 's', claudeModel: 'm',
+      spawn: async () => ({ exitCode: 0, durationMs: 1, slug: 'x', score: 0, isSkip: true }),
+      notify: (m) => notifs.push(m),
+      notifyDedup: createNotifyDedup(), rateLimitStatePath: statePath, tickState,
+    });
+    assert.equal(notifs.filter(n => /▶️/.test(n)).length, 0,
+      'no resume notification when daemon never paused');
+  } finally { cleanup(); }
+});

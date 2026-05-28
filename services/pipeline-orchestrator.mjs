@@ -53,6 +53,14 @@ const defaultLogger = createLogger({
 // instance via `tickOnce({ notifyDedup })`.
 const defaultNotifyDedup = createNotifyDedup();
 
+// ── Per-daemon tick state ────────────────────────────────────────────────────
+// `wasPausedLastTick` lets each daemon emit its OWN resume notification when
+// the rate-limit window elapses. Without this, only the daemon that won the
+// race to delete the shared state file would notify — the other tenant's
+// Telegram chat would stay silent even though processing resumed.
+// Tests inject a fresh `{wasPausedLastTick: false}` via tickOnce({tickState}).
+const defaultTickState = { wasPausedLastTick: false };
+
 // ── Healthchecks.io heartbeat ────────────────────────────────────────────────
 // Opt-in: set HEALTHCHECK_PING_URL to a Healthchecks.io ping URL.
 // When env var is missing, returns a no-op stop function.
@@ -232,34 +240,50 @@ export async function tickOnce({
   db, projectRoot, capLimits, gitSha, claudeModel, spawn, notify,
   isShuttingDown = () => false, notifyChatId = 0, logger = defaultLogger,
   notifyDedup = defaultNotifyDedup, rateLimitStatePath = RATE_LIMIT_STATE_PATH,
+  tickState = defaultTickState,
 }) {
   // ── Global rate-limit guard ───────────────────────────────────────────────
   // Runs BEFORE checkCap so a 5-hour Max window pause supersedes the daily/
   // weekly cap accounting. Both tenants share the same JSON state file under
   // /var/lib/claude-pipeline/, so one tenant hitting the limit pauses both.
   const rl = readState(rateLimitStatePath);
-  if (rl) {
-    const nowMs = Date.now();
-    const resetMs = rl.resetAt.getTime();
-    if (nowMs < resetMs) {
-      const windowMs = Math.max(resetMs - nowMs, 60_000); // floor at 60s so we don't spam
-      if (notifyDedup.shouldEmit('rate_limit:paused', windowMs)) {
-        notify(formatRateLimitPaused({ resetAt: rl.resetAt }));
-      }
-      logger.info({
-        event: 'tick_rate_limit_paused',
-        reset_at: rl.resetAt.toISOString(),
-        reason: rl.reason,
-        set_by: rl.setBy,
-      }, 'rate-limit window active; queue paused');
-      return { action: 'rate_limit_paused' };
+  if (rl && Date.now() < rl.resetAt.getTime()) {
+    // ── Pause path ─────────────────────────────────────────────────────────
+    const windowMs = Math.max(rl.resetAt.getTime() - Date.now(), 60_000); // floor 60s
+    if (notifyDedup.shouldEmit('rate_limit:paused', windowMs)) {
+      notify(formatRateLimitPaused({ resetAt: rl.resetAt }));
     }
-    // Window elapsed — clear state, unpause any rows the watchdog paused, notify once.
+    tickState.wasPausedLastTick = true;
+    logger.info({
+      event: 'tick_rate_limit_paused',
+      reset_at: rl.resetAt.toISOString(),
+      reason: rl.reason,
+      set_by: rl.setBy,
+    }, 'rate-limit window active; queue paused');
+    return { action: 'rate_limit_paused' };
+  }
+
+  // ── Resume path (run on EVERY non-paused tick — race-tolerant across daemons)
+  // If the file still exists (we won the race), delete it. Either way, if THIS
+  // daemon's prior tick was in the pause branch, emit a resume notification so
+  // the user-facing Telegram chat reflects the unpause. Without this guard,
+  // the second tenant's daemon — which finds rl=null because the first tenant
+  // already deleted the file — would silently resume without notifying its
+  // chat (race observed live on 2026-05-28; see deploy-result note in plan).
+  let observedReset = false;
+  if (rl) {
     clearState(rateLimitStatePath);
     db.prepare(`UPDATE queue SET paused=0 WHERE paused=1`).run();
+    observedReset = true;
+    logger.info({ event: 'rate_limit_window_reset' }, 'rate-limit window elapsed; queue resumed');
+  }
+  if (tickState.wasPausedLastTick) {
+    tickState.wasPausedLastTick = false;
     notifyDedup.reset('rate_limit:paused');
     notify(formatRateLimitResumed());
-    logger.info({ event: 'rate_limit_window_reset' }, 'rate-limit window elapsed; queue resumed');
+    if (!observedReset) {
+      logger.info({ event: 'rate_limit_resume_observed' }, 'rate-limit pause cleared by another tenant; queue resumed');
+    }
   }
 
   const cap = checkCap(db, capLimits);
