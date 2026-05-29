@@ -469,13 +469,13 @@ export async function tickOnce({
       runId, company: result.company || hostnameOf(next.url), role: result.role || '(role unknown)',
       score: result.score ?? 0, totalMs: result.durationMs,
     }));
-    // Lazy-import sendTelegramDocument only when we have a PDF to send. If telegram-client
+    // Lazy-import sendDocument only when we have a PDF to send. If telegram-client
     // doesn't exist or chatId is unset, skip the upload (still mark run done — the
     // PDF is on disk; the Telegram delivery is best-effort).
     if (result.resumePdf && existsSync(result.resumePdf) && notifyChatId) {
       try {
-        const { sendTelegramDocument } = await import('./telegram-client.mjs');
-        await sendTelegramDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${runId}` });
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${runId}` });
       } catch (e) {
         runLog.warn({ event: 'pdf_upload_failed', kind: 'resume', err: e }, 'resume PDF upload failed');
         notify(`⚠️ resume upload failed: ${e.message}`);
@@ -483,8 +483,8 @@ export async function tickOnce({
     }
     if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
-        const { sendTelegramDocument } = await import('./telegram-client.mjs');
-        await sendTelegramDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${runId}` });
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${runId}` });
       } catch (e) {
         runLog.warn({ event: 'pdf_upload_failed', kind: 'cover_letter', err: e }, 'cover-letter PDF upload failed');
         notify(`⚠️ cover-letter upload failed: ${e.message}`);
@@ -740,7 +740,7 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
 // The queue row is already 'running' and the runs row is already 'running' — we
 // spawn `claude -p` with the resume preamble (carrying LAST_PHASE/NEXT_PHASE/
 // INPUTS_SUMMARY) and then handle the result exactly like a normal tick would:
-// success → markQueueDone+updateRunEnd(ok)+sendTelegramDocuments; failure → markQueueFailed;
+// success → markQueueDone+updateRunEnd(ok)+sendDocuments; failure → markQueueFailed;
 // cancelled → markQueueCancelled. Checkpoint is deleted in all terminal cases.
 //
 // `spawn` is injected (defaults to realSpawn) so tests can substitute a fake.
@@ -813,8 +813,8 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
     }));
     if (result.resumePdf && existsSync(result.resumePdf) && notifyChatId) {
       try {
-        const { sendTelegramDocument } = await import('./telegram-client.mjs');
-        await sendTelegramDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${recovery.runId} (resumed)` });
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.resumePdf, { chatId: notifyChatId, caption: `Resume #${recovery.runId} (resumed)` });
       } catch (e) {
         resumeLog.warn({ event: 'pdf_upload_failed', kind: 'resume', err: e }, 'resume PDF upload failed');
         notify(`⚠️ resume upload failed: ${e.message}`);
@@ -822,8 +822,8 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
     }
     if (result.coverLetterPdf && existsSync(result.coverLetterPdf) && notifyChatId) {
       try {
-        const { sendTelegramDocument } = await import('./telegram-client.mjs');
-        await sendTelegramDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${recovery.runId} (resumed)` });
+        const { sendDocument } = await import('./telegram-client.mjs');
+        await sendDocument(result.coverLetterPdf, { chatId: notifyChatId, caption: `Cover Letter #${recovery.runId} (resumed)` });
       } catch (e) {
         resumeLog.warn({ event: 'pdf_upload_failed', kind: 'cover_letter', err: e }, 'cover-letter PDF upload failed');
         notify(`⚠️ cover-letter upload failed: ${e.message}`);

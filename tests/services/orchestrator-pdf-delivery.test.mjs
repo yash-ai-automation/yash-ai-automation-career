@@ -1,10 +1,7 @@
 // tests/services/orchestrator-pdf-delivery.test.mjs
-// Regression for the 2026-05-29 delivery bug exposed by the timeout fix: the
-// orchestrator imported/called `sendDocument`, but telegram-client.mjs only
-// exports `sendTelegramDocument` — so every PDF delivery threw
-// "sendDocument is not a function" and resume/cover-letter PDFs never reached
-// Telegram (silent best-effort warning). This guards the export/caller contract
-// with a static check (no network, no token needed).
+// Guard the orchestrator <-> telegram-client delivery contract so a rename on
+// either side can't silently break PDF delivery (resume + cover letter). The
+// real export is `sendDocument` (verified live on the VPS); this test pins it.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,20 +13,20 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const tgSrc = readFileSync(resolve(ROOT, 'services/telegram-client.mjs'), 'utf8');
 const orchSrc = readFileSync(resolve(ROOT, 'services/pipeline-orchestrator.mjs'), 'utf8');
 
-test('telegram-client exports sendTelegramDocument', () => {
+test('telegram-client exports sendDocument', () => {
   assert.ok(
-    /export\s+async\s+function\s+sendTelegramDocument\b/.test(tgSrc),
-    'telegram-client.mjs must export sendTelegramDocument',
+    /export\s+async\s+function\s+sendDocument\b/.test(tgSrc),
+    'telegram-client.mjs must export sendDocument',
   );
 });
 
-test('orchestrator delivers via sendTelegramDocument, never the nonexistent sendDocument', () => {
+test('orchestrator delivers via the real sendDocument export (no phantom symbol)', () => {
   assert.ok(
-    !/\bsendDocument\b/.test(orchSrc),
-    'orchestrator must NOT reference sendDocument — it is not exported (export is sendTelegramDocument)',
+    /await sendDocument\(/.test(orchSrc),
+    'orchestrator must call sendDocument to deliver PDFs',
   );
   assert.ok(
-    /await sendTelegramDocument\(/.test(orchSrc),
-    'orchestrator must call sendTelegramDocument to deliver PDFs',
+    !/sendTelegramDocument/.test(orchSrc),
+    'orchestrator must not reference sendTelegramDocument — that symbol is not exported',
   );
 });
