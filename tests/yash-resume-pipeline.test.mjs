@@ -415,6 +415,32 @@ test('mark-processed: moves URL from Pendientes to Procesadas with metadata', as
   }
 });
 
+test('mark-skipped: appends a status:skip line to the runs audit log', async () => {
+  // Regression for the 2026-05-29 StackAdapt path: a duplicate-skip that only printed
+  // prose left no audit line, so the orchestrator saw incomplete_artifacts and marked
+  // the run failed. mark-skipped must now emit a deterministic status:skip JSONL line.
+  const dir = await mkdtemp(join(tmpdir(), 'yrp-test-markskip-'));
+  await mkdirTest(join(dir, 'data'), { recursive: true });
+  await writeFileTest(join(dir, 'data/yash-pipeline.md'), `## Pendientes
+
+- [ ] https://acme.com/job
+
+## Procesadas
+
+`);
+  try {
+    await execFileP('node', [SCRIPT, 'mark-skipped', '--url', 'https://acme.com/job', '--reason', 'duplicate (all artifacts already exist)'], { cwd: dir });
+    const log = (await readFileTest(join(dir, 'data/yash-resume-runs.log'), 'utf-8')).trim();
+    const obj = JSON.parse(log.split('\n').pop());
+    assert.equal(obj.status, 'skip');
+    assert.equal(obj.url, 'https://acme.com/job');
+    assert.match(obj.reason, /duplicate/);
+    assert.ok(obj.timestamp, 'must include a timestamp so findAuditResult can window-match it');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('mark-processed: idempotent — running twice does not duplicate', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'yrp-test-'));
   await mkdirTest(join(dir, 'data'), { recursive: true });

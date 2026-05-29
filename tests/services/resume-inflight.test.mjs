@@ -156,6 +156,38 @@ test('resumeInFlightRun: clean exit → marks queue done, run ok, deletes checkp
   } finally { cleanup(); }
 });
 
+test('resumeInFlightRun: SIGTERM-killed (exit 143) but all artifacts on disk → completed_ok', async () => {
+  const { db, dir, dbPath, cleanup } = fresh();
+  try {
+    writeResumePreamble(dir);
+    const seeded = seedInFlight(db);
+    const inputsPath = join(dir, 'ops/checkpoints', `${seeded.urlHash}.json`);
+    writeFileSync(inputsPath, JSON.stringify({ jd_path: 'jds/yash/foo.md' }));
+    upsertCheckpoint(db, { runId: seeded.runId, lastPhase: seeded.lastPhase, inputsPath });
+    // The resumed run finished all artifacts, then was SIGTERM'd at the timeout.
+    mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+    mkdirSync(join(dir, 'resumes/yash'), { recursive: true });
+    mkdirSync(join(dir, 'cover-letters/yash'), { recursive: true });
+    writeFileSync(join(dir, 'jds/yash/foo.md'), 'jd');
+    writeFileSync(join(dir, 'resumes/yash/foo.pdf'), '%PDF');
+    writeFileSync(join(dir, 'cover-letters/yash/foo.pdf'), '%PDF');
+
+    const recovery = analyzeRebootState(db);
+    const result = await resumeInFlightRun({
+      db, projectRoot: dir, dbPath, claudeModel: 'claude-sonnet-4-6',
+      notify: () => {},
+      recovery,
+      spawn: async () => ({
+        exitCode: 143, error: 'claude -p exit 143 signal SIGTERM',
+        jdPath: 'jds/yash/foo.md', resumePdf: 'resumes/yash/foo.pdf', coverLetterPdf: 'cover-letters/yash/foo.pdf',
+      }),
+    });
+
+    assert.equal(result.action, 'completed_ok', 'a killed-but-complete resumed run must be credited');
+    assert.equal(db.prepare('SELECT status FROM queue WHERE id=?').get(seeded.queueId).status, 'done');
+  } finally { cleanup(); }
+});
+
 // ── resumeInFlightRun failure path ─────────────────────────────────────────
 
 test('resumeInFlightRun: non-zero exit → marks queue failed, run fail, deletes checkpoint', async () => {

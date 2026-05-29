@@ -7,8 +7,8 @@
 // into tickOnce() and runs the poll loop with a 2-second cadence.
 
 import { spawn as nodeSpawn } from 'node:child_process';
-import { resolve, join, isAbsolute } from 'node:path';
-import { mkdirSync, createWriteStream, readFileSync, existsSync } from 'node:fs';
+import { resolve, join, isAbsolute, basename } from 'node:path';
+import { mkdirSync, createWriteStream, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 import { initDb, integrityCheck, closeDb, topHintsByHost } from './db.mjs';
@@ -78,8 +78,44 @@ export function startHeartbeat({ httpClient = fetch, intervalMs = 60_000 } = {})
 
 const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
-const PER_URL_TIMEOUT_MS = 20 * 60 * 1000;   // 20 min per Q3 default
 const SIGKILL_GRACE_MS = 10_000;
+// Tolerance between tickOnce's startedAt stamp and the pipeline's audit-line
+// timestamp (same host; effectively 0, but be generous).
+const AUDIT_WINDOW_SKEW_MS = 5_000;
+
+// Per-URL wall-clock timeout. Raised 20→35 min (2026-05-29): a full run legitimately
+// takes ~16–25 min under Sonnet 4.6 / xhigh, so a hard 20 min guillotined runs that
+// had already finished, which the orchestrator then re-queued and surfaced as a false
+// "duplicate (all artifacts already exist)" skip. Configurable via PER_URL_TIMEOUT_MS
+// so the operator can tune without a redeploy.
+// See docs/superpowers/plans/2026-05-29-yash-pipeline-timeout-requeue-fix.md.
+export function resolveRunTimeoutMs(env = process.env) {
+  const raw = parseInt(env.PER_URL_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 35 * 60 * 1000;
+}
+
+/**
+ * Find the audit-log line that belongs to THIS run: the latest JSONL line whose
+ * `url` matches and whose `timestamp` is within the run window (>= startedAt).
+ * The window guard prevents a stale line from a prior attempt from falsely
+ * crediting a later attempt. Returns the raw parsed object or null.
+ */
+export function findAuditResult({ auditText, url, startedAt = null }) {
+  if (!auditText) return null;
+  const minTs = startedAt ? Date.parse(startedAt) : null;
+  const lines = auditText.trim().split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let obj;
+    try { obj = JSON.parse(lines[i]); } catch { continue; }
+    if (obj.url !== url) continue;
+    if (minTs !== null && obj.timestamp) {
+      const ts = Date.parse(obj.timestamp);
+      if (!Number.isNaN(ts) && ts < minTs - AUDIT_WINDOW_SKEW_MS) continue;
+    }
+    return obj;
+  }
+  return null;
+}
 
 // ── verifyRunArtifacts ──────────────────────────────────────────────────────
 
@@ -126,6 +162,178 @@ export function verifyRunArtifacts({ result, projectRoot }) {
     }
   }
   return { ok: missing.length === 0, kind: 'complete', missing };
+}
+
+// ── scanRunArtifacts ────────────────────────────────────────────────────────
+
+/**
+ * Filesystem ground truth for "what did this run produce". The orchestrator runs
+ * exactly one `claude -p` per tenant at a time, so any file in the tenant's output
+ * dirs whose mtime falls within the run window (>= startedAt) belongs to THIS run.
+ * Returns the newest in-window file in jds/<tenant>, resumes/<tenant>, and
+ * cover-letters/<tenant> (absolute paths, or null). Used as a fallback when the
+ * agent's audit line omits the artifact paths — which it sometimes does (it logged
+ * status:ok + timings but not --jd/--pdf/--cover-letter on 2026-05-29 run #93),
+ * leaving the orchestrator unable to confirm a genuinely-complete run.
+ */
+export function scanRunArtifacts({ projectRoot, tenant = 'yash', startedAt = null }) {
+  const startMs = startedAt ? Date.parse(startedAt) : 0;
+  const minMs = Number.isNaN(startMs) ? 0 : startMs - AUDIT_WINDOW_SKEW_MS;
+  const dirs = {
+    jd: join(projectRoot, 'jds', tenant),
+    pdf: join(projectRoot, 'resumes', tenant),
+    cover_letter_pdf: join(projectRoot, 'cover-letters', tenant),
+  };
+  const out = { jd: null, pdf: null, cover_letter_pdf: null };
+  for (const [key, dir] of Object.entries(dirs)) {
+    if (!existsSync(dir)) continue;
+    let entries;
+    try { entries = readdirSync(dir); } catch { continue; }
+    let best = null, bestMtime = -1;
+    for (const name of entries) {
+      const p = join(dir, name);
+      let st;
+      try { st = statSync(p); } catch { continue; }
+      if (!st.isFile() || st.size === 0) continue;
+      if (st.mtimeMs >= minMs && st.mtimeMs > bestMtime) { best = p; bestMtime = st.mtimeMs; }
+    }
+    out[key] = best;
+  }
+  return out;
+}
+
+// ── deriveSlugFromArtifacts ─────────────────────────────────────────────────
+
+/**
+ * Recover the company/role slug from an artifact filename. The pipeline names
+ * files `JD_<slug>_<First>_Anghan_<date>.md`, `<slug>_<First>_Anghan_Resume_<date>.pdf`,
+ * `<slug>_<First>_Anghan_Cover_Letter_<date>.pdf` (First = capitalised tenant).
+ * Returns the slug, or null if none of the provided paths parse.
+ */
+export function deriveSlugFromArtifacts({ scanned, tenant = 'yash' }) {
+  const first = tenant.charAt(0).toUpperCase() + tenant.slice(1);
+  const marker = `_${first}_Anghan_`;
+  for (const [key, p] of Object.entries(scanned || {})) {
+    if (!p) continue;
+    let name = basename(p);
+    if (key === 'jd') name = name.replace(/^JD_/, '');
+    const idx = name.indexOf(marker);
+    if (idx > 0) return name.slice(0, idx);
+  }
+  return null;
+}
+
+// ── findArtifactsBySlug ─────────────────────────────────────────────────────
+
+/**
+ * Slug-scoped triplet lookup (the robust replacement for an mtime-only window
+ * scan on the CL-only / partial-duplicate path, where the JD + resume already
+ * exist from a prior run and only the cover letter is freshly produced). For the
+ * given slug, returns the newest matching JD / resume / cover-letter in the
+ * tenant's output dirs — REGARDLESS of mtime — mirroring the pipeline's own
+ * check-duplicate triplet semantics. Absolute paths, or null per slot.
+ */
+export function findArtifactsBySlug({ projectRoot, tenant = 'yash', slug }) {
+  const out = { jd: null, pdf: null, cover_letter_pdf: null };
+  if (!slug) return out;
+  const first = tenant.charAt(0).toUpperCase() + tenant.slice(1);
+  const specs = {
+    jd:              { dir: join(projectRoot, 'jds', tenant),           prefix: 'JD_', must: `${slug}_${first}_Anghan_`,              ext: '.md' },
+    pdf:             { dir: join(projectRoot, 'resumes', tenant),                      must: `${slug}_${first}_Anghan_Resume_`,        ext: '.pdf' },
+    cover_letter_pdf:{ dir: join(projectRoot, 'cover-letters', tenant),               must: `${slug}_${first}_Anghan_Cover_Letter_`,  ext: '.pdf' },
+  };
+  for (const [key, s] of Object.entries(specs)) {
+    if (!existsSync(s.dir)) continue;
+    let entries;
+    try { entries = readdirSync(s.dir); } catch { continue; }
+    let best = null, bestMtime = -1;
+    for (const name of entries) {
+      if (s.prefix && !name.startsWith(s.prefix)) continue;
+      if (!name.includes(s.must)) continue;
+      if (s.ext && !name.endsWith(s.ext)) continue;
+      const p = join(s.dir, name);
+      let st;
+      try { st = statSync(p); } catch { continue; }
+      if (!st.isFile() || st.size === 0) continue;
+      if (st.mtimeMs > bestMtime) { best = p; bestMtime = st.mtimeMs; }
+    }
+    out[key] = best;
+  }
+  return out;
+}
+
+// ── resolveRunArtifacts ─────────────────────────────────────────────────────
+
+/**
+ * Three-layer artifact path resolution for a finished run, most-trusted first:
+ *   1. declared — paths the agent logged in its audit line (when present)
+ *   2. window scan — newest file per dir written within the run window
+ *   3. slug scope — newest file per dir matching the run's slug, any date
+ * Layer 3 is what recovers a pre-existing JD + resume on the CL-only path.
+ */
+export function resolveRunArtifacts({ declared, projectRoot, tenant = 'yash', startedAt = null }) {
+  const scanned = scanRunArtifacts({ projectRoot, tenant, startedAt });
+  const slug = deriveSlugFromArtifacts({ scanned, tenant });
+  const bySlug = findArtifactsBySlug({ projectRoot, tenant, slug });
+  const pick = (d, key) => d ?? scanned[key] ?? bySlug[key];
+  return {
+    slug,
+    jdPath: pick(declared?.jd, 'jd'),
+    resumePdf: pick(declared?.pdf, 'pdf'),
+    coverLetterPdf: pick(declared?.cover_letter_pdf, 'cover_letter_pdf'),
+  };
+}
+
+// ── identifyOrphanClaudePids ────────────────────────────────────────────────
+
+/**
+ * Pure selector for the boot-time reaper. From a process snapshot
+ * (`[{ pid, ppid, etimes, cmd }]`), return the pids of `claude -p` workers that
+ * have been re-parented to init (ppid === 1) AND are older than minAgeSec — i.e.
+ * leaked children of a prior orchestrator that died mid-run (a restart kills the
+ * parent but the SIGTERM/SIGKILL timer dies with it, so the child runs forever).
+ * The age floor (default 40 min > the 35-min run timeout) guarantees we never
+ * touch a sibling tenant's freshly-orphaned-but-legitimate child during a
+ * coordinated restart. The current live child is never matched (its ppid is the
+ * live orchestrator, not 1).
+ */
+export function identifyOrphanClaudePids(snapshot, { minAgeSec = 2400, projectRoot = null } = {}) {
+  return (snapshot || [])
+    .filter((p) => p && p.ppid === 1)
+    .filter((p) => typeof p.cmd === 'string' && /(^|\/)claude\b/.test(p.cmd) && /\s-p(\s|$)/.test(p.cmd))
+    .filter((p) => (p.etimes ?? 0) >= minAgeSec)
+    .filter((p) => !projectRoot || p.cmd.includes(projectRoot))
+    .map((p) => p.pid);
+}
+
+/**
+ * Runtime side of the reaper: snapshot processes via `ps`, select stale orphans
+ * with identifyOrphanClaudePids, SIGKILL them. Best-effort; never throws. Called
+ * once at orchestrator boot before the poll loop. Returns the pids it killed.
+ */
+export function reapOrphanedClaudeProcesses({ projectRoot, logger = defaultLogger } = {}) {
+  let snapshot = [];
+  try {
+    const raw = execSync('ps -eo pid=,ppid=,etimes=,args=', { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    snapshot = raw.split('\n').map((line) => {
+      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/);
+      if (!m) return null;
+      return { pid: Number(m[1]), ppid: Number(m[2]), etimes: Number(m[3]), cmd: m[4] };
+    }).filter(Boolean);
+  } catch (e) {
+    logger.warn({ event: 'reaper_ps_failed', err: e.message }, 'could not snapshot processes; skipping orphan reap');
+    return [];
+  }
+  const pids = identifyOrphanClaudePids(snapshot, { projectRoot });
+  const killed = [];
+  for (const pid of pids) {
+    try { process.kill(pid, 'SIGKILL'); killed.push(pid); }
+    catch (e) { logger.warn({ event: 'reaper_kill_failed', pid, err: e.message }, 'failed to kill orphan'); }
+  }
+  if (killed.length) {
+    logger.warn({ event: 'reaped_orphan_claude', pids: killed }, `reaped ${killed.length} orphaned claude -p worker(s)`);
+  }
+  return killed;
 }
 
 // ── createPhaseTracker ──────────────────────────────────────────────────────
@@ -317,7 +525,7 @@ export async function tickOnce({
   try {
     result = await spawn({
       runId, queueId: next.id, url: next.url, urlHash: next.url_hash,
-      projectRoot, claudeModel,
+      projectRoot, claudeModel, startedAt,
     });
   } catch (e) {
     runLog.error({ event: 'spawn_threw', err: e }, 'spawn() threw');
@@ -382,53 +590,28 @@ export async function tickOnce({
     return { action: 'rate_limited', runId };
   }
 
-  if (result.exitCode === 0) {
-    // Artifact-gated completion: a 0 exit alone is NOT enough to declare success.
-    // Either the runner explicitly skipped (mark-skipped → result.isSkip = true,
-    // emit formatSkipped + close the row), or all three declared artifacts must
-    // exist on disk. Anything else is a false success and gets rerouted into the
-    // failure branch so the 3-strike retry re-attempts the missing work.
-    const verify = verifyRunArtifacts({ result, projectRoot });
+  // ── Ground-truth success determination (2026-05-29 fix) ─────────────────────
+  // A run is successful when it legitimately skipped OR produced all three declared
+  // artifacts on disk — REGARDLESS of the claude -p exit code. Before this, success
+  // was gated on exitCode===0, so a run that finished the pipeline but was SIGTERM'd
+  // at the wall-clock timeout (exit 143) just before the process exited was
+  // misclassified as a failure and re-queued — which then surfaced as a false
+  // "duplicate (all artifacts already exist)" skip (OpenLoop) or an
+  // incomplete_artifacts failure (StackAdapt) on the retry. realSpawn scopes
+  // result.* to THIS run's audit window, so stale prior-attempt lines can't leak in.
+  // See docs/superpowers/plans/2026-05-29-yash-pipeline-timeout-requeue-fix.md.
+  //
+  // 2026-05-29 refinement: the pipeline writes status:ok to its audit log ONLY at
+  // its terminal step, after every artifact has compiled — so result.auditStatus
+  // ('ok') is the single most trustworthy completion signal, even on the CL-only
+  // path where a fresh cover letter sits beside a pre-existing JD + resume. We
+  // trust it (guarded by a resume-on-disk check against a hallucinated 'ok'), and
+  // also accept the run when all three resolved artifacts exist on disk.
+  const verify = verifyRunArtifacts({ result, projectRoot });
+  const auditOk = result.auditStatus === 'ok';
+  const resumeOnDisk = !!(result.resumePdf && existsSync(result.resumePdf));
 
-    if (verify.kind === 'skip') {
-      updateRunEnd(db, runId, {
-        endedAt, status: 'ok', score: result.score, slug: result.slug,
-        jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
-        tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
-        phaseTimingsJson: result.phaseTimingsJson,
-      });
-      markQueueDone(db, next.id);
-      deleteCheckpoint(db, runId);
-      runLog.info({
-        event: 'run_completed_skip',
-        skip_reason: result.skipReason || null,
-      }, 'run completed via mark-skipped (no new artifacts)');
-      notify(formatSkipped({
-        runId, hostname: hostnameOf(next.url), reason: result.skipReason,
-      }));
-      return { action: 'completed_skip', runId };
-    }
-
-    if (!verify.ok) {
-      // Reroute into the failure branch (defined just below) so the 3-strike
-      // retry re-attempts the missing work. Replace the result fields the
-      // failure handler reads so the failure_phase + error are accurate.
-      runLog.error({
-        event: 'incomplete_artifacts',
-        missing: verify.missing,
-        declared_jd: result.jdPath,
-        declared_pdf: result.resumePdf,
-        declared_cl: result.coverLetterPdf,
-      }, 'runner reported exit 0 but expected artifacts are missing');
-      result = {
-        ...result,
-        exitCode: 1,
-        error: `incomplete_artifacts: ${verify.missing.join(', ')}`,
-        failedPhase: 'verify_artifacts',
-      };
-      // fall through to the existing failure/retry branch below
-    } else {
-
+  if (verify.kind === 'skip') {
     updateRunEnd(db, runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -438,7 +621,27 @@ export async function tickOnce({
     markQueueDone(db, next.id);
     deleteCheckpoint(db, runId);
     runLog.info({
-      event: 'run_completed_ok',
+      event: 'run_completed_skip', exit_code: result.exitCode,
+      skip_reason: result.skipReason || null,
+    }, 'run completed via mark-skipped (no new artifacts)');
+    notify(formatSkipped({
+      runId, hostname: hostnameOf(next.url), reason: result.skipReason,
+    }));
+    return { action: 'completed_skip', runId };
+  }
+
+  if (verify.ok || (auditOk && resumeOnDisk)) {
+    updateRunEnd(db, runId, {
+      endedAt, status: 'ok', score: result.score, slug: result.slug,
+      jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
+      tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
+      phaseTimingsJson: result.phaseTimingsJson,
+    });
+    markQueueDone(db, next.id);
+    deleteCheckpoint(db, runId);
+    runLog.info({
+      event: 'run_completed_ok', exit_code: result.exitCode,
+      audit_ok: auditOk, verified_on_disk: verify.ok,
       score: result.score ?? null,
       duration_ms: result.durationMs ?? null,
       company: result.company || null,
@@ -470,10 +673,10 @@ export async function tickOnce({
       }
     }
     return { action: 'completed_ok', runId };
-    }   // end of `else` (verify.ok) — falls through to failure branch otherwise
   }
 
-  // failure or cancelled
+  // ── No completion evidence on disk ──────────────────────────────────────────
+  // Cancellation wins over retry.
   const cancelled = isCancelRequested(db, next.id);
   if (cancelled) {
     updateRunEnd(db, runId, { endedAt, status: 'cancelled', error: 'user-cancelled' });
@@ -482,6 +685,27 @@ export async function tickOnce({
     runLog.info({ event: 'run_cancelled' }, 'run cancelled by user');
     notify(formatCancelled({ runId }));
     return { action: 'completed_cancelled', runId };
+  }
+
+  // A clean exit (0) — or an audit 'ok' we could not corroborate with a resume on
+  // disk (hallucinated completion) — that produced nothing is a false success.
+  // Record the precise missing artifacts so the 3-strike retry reattempts the work.
+  if (result.exitCode === 0 || auditOk) {
+    runLog.error({
+      event: 'incomplete_artifacts',
+      missing: verify.missing,
+      audit_ok: auditOk,
+      resume_on_disk: resumeOnDisk,
+      declared_jd: result.jdPath,
+      declared_pdf: result.resumePdf,
+      declared_cl: result.coverLetterPdf,
+    }, 'runner reported success but expected artifacts are missing');
+    result = {
+      ...result,
+      exitCode: 1,
+      error: `incomplete_artifacts: ${verify.missing.join(', ')}`,
+      failedPhase: 'verify_artifacts',
+    };
   }
 
   // Shared 3-strike retry policy (plan §4.8 / Q6 — applies to Yash AND Shivani).
@@ -551,7 +775,7 @@ export async function tickOnce({
 // This is the production glue. The signature matches what tickOnce passes in.
 // `mode` is 'fresh' (default) or 'resume'; `resumeContext` carries the extra vars
 // (LAST_PHASE, NEXT_PHASE, INPUTS_SUMMARY) substituted into the resume preamble.
-export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel, mode = 'fresh', resumeContext = null }, { onPhaseEnd, onSpawn, db }) {
+export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel, startedAt = null, mode = 'fresh', resumeContext = null }, { onPhaseEnd, onSpawn, db }) {
   const preamble = renderPreamble({
     projectRoot, mode,
     vars: {
@@ -634,11 +858,12 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }, CHECKPOINT_POLL_MS);
 
-  // wall-clock timeout: 20 min
+  // wall-clock timeout (configurable; default 35 min)
+  const runTimeoutMs = resolveRunTimeoutMs();
   const timeout = setTimeout(() => {
     try { child.kill('SIGTERM'); } catch {}
     setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, SIGKILL_GRACE_MS);
-  }, PER_URL_TIMEOUT_MS);
+  }, runTimeoutMs);
 
   const exit = await new Promise((res) => {
     child.on('exit', (code, signal) => res({ code, signal }));
@@ -649,17 +874,12 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   clearTimeout(timeout);
   logStream.end();
 
-  // grep audit log for the per-URL JSONL line
+  // Find the per-URL audit line for THIS run, scoped to the run window by startedAt
+  // so a stale prior-attempt line can't be credited to this attempt.
   const auditPath = resolveAuditLogPath(projectRoot);
   let parsed = null;
   if (existsSync(auditPath)) {
-    const lines = readFileSync(auditPath, 'utf-8').trim().split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const obj = JSON.parse(lines[i]);
-        if (obj.url === url) { parsed = obj; break; }
-      } catch {}
-    }
+    parsed = findAuditResult({ auditText: readFileSync(auditPath, 'utf-8'), url, startedAt });
   }
 
   // Scan the tail of claude.log for usage-limit signatures. Only run when
@@ -679,18 +899,29 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }
 
+  // Resolve artifact paths via three layers (declared → window scan → slug scope)
+  // so success determination is independent of whether the agent logged paths, and
+  // the CL-only path can recover a pre-existing JD + resume. auditStatus carries the
+  // pipeline's own terminal verdict ('ok'|'skip') — the most trustworthy completion
+  // signal, since the pipeline writes it only after all artifacts compile.
+  const tenant = (process.env.TENANT || 'yash').trim().toLowerCase() || 'yash';
+  const declared = { jd: parsed?.jd ?? null, pdf: parsed?.pdf ?? null, cover_letter_pdf: parsed?.cover_letter_pdf ?? null };
+  const resolved = resolveRunArtifacts({ declared, projectRoot, tenant, startedAt });
+
   return {
     exitCode: exit.code === null ? 124 : exit.code,
     durationMs: parsed?.total_ms ?? null,
-    slug: parsed?.slug ?? null,
+    slug: parsed?.slug ?? resolved.slug ?? null,
     score: parsed?.score ?? null,
-    jdPath: parsed?.jd ?? null,
-    resumePdf: parsed?.pdf ?? null,
-    coverLetterPdf: parsed?.cover_letter_pdf ?? null,
+    jdPath: resolved.jdPath,
+    resumePdf: resolved.resumePdf,
+    coverLetterPdf: resolved.coverLetterPdf,
     failedPhase: lastSeenPhase ? computeNextPhase(lastSeenPhase) : 'jd_fetch_end',
     error: exit.code === 0 ? null : `claude -p exit ${exit.code} signal ${exit.signal || 'none'}`,
     phaseTimingsJson: parsed ? JSON.stringify(parsed) : null,
-    // verifyRunArtifacts + skip-vs-success branching in tickOnce keys on these.
+    // tickOnce success determination keys on these. auditStatus is the pipeline's
+    // own terminal verdict; isSkip/skipReason are kept for back-compat.
+    auditStatus: parsed?.status ?? null,
     isSkip: parsed?.status === 'skip',
     skipReason: parsed?.reason ?? null,
     // Rate-limit signal — tickOnce reads these to branch into the quota-pause path.
@@ -728,12 +959,13 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
   notify(formatStart({ runId: recovery.runId, hostname: hostnameOf(recovery.url) }));
   notify(`♻️ Resuming run #${recovery.runId} from \`${recovery.lastPhase}\` → \`${recovery.nextPhase}\``);
 
+  const startedAt = new Date().toISOString();
   let result;
   try {
     result = await spawn(
       {
         runId: recovery.runId, queueId: recovery.queueId, url: recovery.url, urlHash: recovery.urlHash,
-        projectRoot, dbPath, claudeModel,
+        projectRoot, dbPath, claudeModel, startedAt,
         mode: 'resume',
         resumeContext: {
           LAST_PHASE: recovery.lastPhase,
@@ -752,7 +984,14 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
 
   const endedAt = new Date().toISOString();
 
-  if (result.exitCode === 0) {
+  // Ground-truth success (2026-05-29): credit a clean exit OR a run that produced
+  // all artifacts / legitimately skipped even if SIGTERM'd at the timeout (exit 143)
+  // before exiting. Same bug class as the tickOnce fix; additive so a clean exit
+  // still counts as success (preserves the no-artifact resume test).
+  const verify = verifyRunArtifacts({ result, projectRoot });
+  const auditOk = result.auditStatus === 'ok';
+  const resumeOnDisk = !!(result.resumePdf && existsSync(result.resumePdf));
+  if (result.exitCode === 0 || verify.kind === 'skip' || verify.ok || (auditOk && resumeOnDisk)) {
     updateRunEnd(db, recovery.runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -872,6 +1111,20 @@ async function main() {
   // READY=1 lets systemd consider the service "started"; WATCHDOG=1 pings keep
   // it alive under WatchdogSec=300 (ping cadence = 120s ≈ 1/2.5 of the limit).
   await notifyReady('orchestrator');
+
+  // Boot-time orphan reaper: a prior orchestrator that died mid-run (e.g. systemd
+  // SIGKILL after TimeoutStopSec) leaves its `claude -p` child re-parented to init
+  // (ppid=1), running forever because the kill timer died with the parent. On
+  // 2026-05-29 this left 11 parentless run-49 workers alive ~39h, starving the VPS
+  // and worsening run timeouts. Reap stale orphans (ppid=1, age > 40min, our
+  // projectRoot) before starting work. Live sibling-tenant children are never
+  // matched (their ppid is the live orchestrator, not 1).
+  try {
+    reapOrphanedClaudeProcesses({ projectRoot, logger: defaultLogger });
+  } catch (e) {
+    defaultLogger.warn({ event: 'reaper_threw', err: e.message }, 'orphan reaper threw; continuing boot');
+  }
+
   const stopWatchdog = startWatchdogPinger(120_000);
 
   // ── boot notification (one-shot) ────────────────────────────────────────
