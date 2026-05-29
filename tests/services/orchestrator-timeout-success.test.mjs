@@ -14,13 +14,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initDb, closeDb } from '../../services/db.mjs';
 import { insertQueueRow } from '../../services/queue.mjs';
 import {
-  tickOnce, resolveRunTimeoutMs, findAuditResult,
+  tickOnce, resolveRunTimeoutMs, findAuditResult, scanRunArtifacts, verifyRunArtifacts,
 } from '../../services/pipeline-orchestrator.mjs';
 
 function fresh() {
@@ -148,4 +148,54 @@ test('tickOnce: SIGTERM-killed run (exit 143) with INCOMPLETE artifacts → requ
     assert.equal(r.attempts, 1);
     assert.equal(db.prepare('SELECT status FROM queue WHERE id=?').get(qid).status, 'queued');
   } finally { cleanup(); }
+});
+
+// ── 2026-05-29 follow-up: filesystem-scan fallback for missing audit paths ──
+// Smoke run #93 produced all artifacts but its audit line logged status:ok WITHOUT
+// the jd/pdf/cover_letter paths, so the orchestrator saw "incomplete_artifacts" and
+// re-queued → duplicate-skip. realSpawn now recovers paths by scanning the tenant's
+// output dirs for run-window-fresh files, independent of agent logging fidelity.
+
+test('scanRunArtifacts: recovers in-window artifacts when the audit line omitted paths (run-93 regression)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'scan-'));
+  try {
+    const startedAt = new Date(Date.now() - 60_000).toISOString(); // 1 min ago
+    mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+    mkdirSync(join(dir, 'resumes/yash'), { recursive: true });
+    mkdirSync(join(dir, 'cover-letters/yash'), { recursive: true });
+    writeFileSync(join(dir, 'jds/yash/JD_X.md'), '# jd');
+    writeFileSync(join(dir, 'resumes/yash/X.pdf'), '%PDF-1.4 x');
+    writeFileSync(join(dir, 'cover-letters/yash/X_CL.pdf'), '%PDF-1.4 cl');
+    const scanned = scanRunArtifacts({ projectRoot: dir, tenant: 'yash', startedAt });
+    assert.ok(scanned.jd && scanned.pdf && scanned.cover_letter_pdf,
+      `all three artifacts recovered: ${JSON.stringify(scanned)}`);
+    // The run-93 fix: a result with NO declared paths but scan-recovered paths verifies ok.
+    const v = verifyRunArtifacts({
+      result: { isSkip: false, jdPath: scanned.jd, resumePdf: scanned.pdf, coverLetterPdf: scanned.cover_letter_pdf },
+      projectRoot: dir,
+    });
+    assert.equal(v.ok, true, 'scan-recovered artifacts must satisfy verifyRunArtifacts');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('scanRunArtifacts: ignores files older than the run window', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'scan-old-'));
+  try {
+    mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+    const oldFile = join(dir, 'jds/yash/OLD.md');
+    writeFileSync(oldFile, '# old jd');
+    const old = new Date(Date.now() - 2 * 3600 * 1000); // 2h ago
+    utimesSync(oldFile, old, old);
+    const startedAt = new Date(Date.now() - 60_000).toISOString();
+    const scanned = scanRunArtifacts({ projectRoot: dir, tenant: 'yash', startedAt });
+    assert.equal(scanned.jd, null, 'a file older than startedAt must not be credited to this run');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('scanRunArtifacts: returns nulls when the tenant dirs are absent', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'scan-empty-'));
+  try {
+    const scanned = scanRunArtifacts({ projectRoot: dir, tenant: 'yash', startedAt: new Date().toISOString() });
+    assert.deepEqual(scanned, { jd: null, pdf: null, cover_letter_pdf: null });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

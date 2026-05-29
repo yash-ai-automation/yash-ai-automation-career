@@ -8,7 +8,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { resolve, join, isAbsolute } from 'node:path';
-import { mkdirSync, createWriteStream, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, createWriteStream, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 import { initDb, integrityCheck, closeDb, topHintsByHost } from './db.mjs';
@@ -162,6 +162,44 @@ export function verifyRunArtifacts({ result, projectRoot }) {
     }
   }
   return { ok: missing.length === 0, kind: 'complete', missing };
+}
+
+// ── scanRunArtifacts ────────────────────────────────────────────────────────
+
+/**
+ * Filesystem ground truth for "what did this run produce". The orchestrator runs
+ * exactly one `claude -p` per tenant at a time, so any file in the tenant's output
+ * dirs whose mtime falls within the run window (>= startedAt) belongs to THIS run.
+ * Returns the newest in-window file in jds/<tenant>, resumes/<tenant>, and
+ * cover-letters/<tenant> (absolute paths, or null). Used as a fallback when the
+ * agent's audit line omits the artifact paths — which it sometimes does (it logged
+ * status:ok + timings but not --jd/--pdf/--cover-letter on 2026-05-29 run #93),
+ * leaving the orchestrator unable to confirm a genuinely-complete run.
+ */
+export function scanRunArtifacts({ projectRoot, tenant = 'yash', startedAt = null }) {
+  const startMs = startedAt ? Date.parse(startedAt) : 0;
+  const minMs = Number.isNaN(startMs) ? 0 : startMs - AUDIT_WINDOW_SKEW_MS;
+  const dirs = {
+    jd: join(projectRoot, 'jds', tenant),
+    pdf: join(projectRoot, 'resumes', tenant),
+    cover_letter_pdf: join(projectRoot, 'cover-letters', tenant),
+  };
+  const out = { jd: null, pdf: null, cover_letter_pdf: null };
+  for (const [key, dir] of Object.entries(dirs)) {
+    if (!existsSync(dir)) continue;
+    let entries;
+    try { entries = readdirSync(dir); } catch { continue; }
+    let best = null, bestMtime = -1;
+    for (const name of entries) {
+      const p = join(dir, name);
+      let st;
+      try { st = statSync(p); } catch { continue; }
+      if (!st.isFile() || st.size === 0) continue;
+      if (st.mtimeMs >= minMs && st.mtimeMs > bestMtime) { best = p; bestMtime = st.mtimeMs; }
+    }
+    out[key] = best;
+  }
+  return out;
 }
 
 // ── createPhaseTracker ──────────────────────────────────────────────────────
@@ -714,14 +752,21 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }
 
+  // Ground-truth fallback: if the agent's audit line omitted artifact paths (it
+  // logs status:ok + timings via --from-timer but sometimes not --jd/--pdf/--cover-letter),
+  // recover them by scanning the tenant's output dirs for files written during this
+  // run's window. Makes success determination independent of agent logging fidelity.
+  const tenant = (process.env.TENANT || 'yash').trim().toLowerCase() || 'yash';
+  const scanned = scanRunArtifacts({ projectRoot, tenant, startedAt });
+
   return {
     exitCode: exit.code === null ? 124 : exit.code,
     durationMs: parsed?.total_ms ?? null,
     slug: parsed?.slug ?? null,
     score: parsed?.score ?? null,
-    jdPath: parsed?.jd ?? null,
-    resumePdf: parsed?.pdf ?? null,
-    coverLetterPdf: parsed?.cover_letter_pdf ?? null,
+    jdPath: parsed?.jd ?? scanned.jd,
+    resumePdf: parsed?.pdf ?? scanned.pdf,
+    coverLetterPdf: parsed?.cover_letter_pdf ?? scanned.cover_letter_pdf,
     failedPhase: lastSeenPhase ? computeNextPhase(lastSeenPhase) : 'jd_fetch_end',
     error: exit.code === 0 ? null : `claude -p exit ${exit.code} signal ${exit.signal || 'none'}`,
     phaseTimingsJson: parsed ? JSON.stringify(parsed) : null,
