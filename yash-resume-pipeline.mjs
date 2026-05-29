@@ -321,6 +321,14 @@ SUBCOMMANDS['mark-skipped'] = async (args) => {
   const updated = insertAtSectionEnd(cleaned, procesadasIdx, newLine);
   await writePipelineAtomic(updated.join('\n'));
   await commitQueueAfterMutation('skipped', url);
+  // Also record the skip in the run audit log so the orchestrator's findAuditResult
+  // sees a deterministic status:skip signal (no longer dependent on the agent
+  // remembering a separate `log --status skip` call). Additive — never removes lines.
+  const skipLogPath = runsLogPath();
+  await mkdir(dirname(skipLogPath), { recursive: true });
+  await appendFile(skipLogPath, JSON.stringify({
+    timestamp: new Date().toISOString(), status: 'skip', url, reason: sanitizeReason(reason),
+  }) + '\n');
   ok({});
 };
 

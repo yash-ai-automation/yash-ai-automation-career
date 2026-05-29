@@ -78,8 +78,44 @@ export function startHeartbeat({ httpClient = fetch, intervalMs = 60_000 } = {})
 
 const POLL_MS = 2_000;
 const CHECKPOINT_POLL_MS = 2_000;
-const PER_URL_TIMEOUT_MS = 20 * 60 * 1000;   // 20 min per Q3 default
 const SIGKILL_GRACE_MS = 10_000;
+// Tolerance between tickOnce's startedAt stamp and the pipeline's audit-line
+// timestamp (same host; effectively 0, but be generous).
+const AUDIT_WINDOW_SKEW_MS = 5_000;
+
+// Per-URL wall-clock timeout. Raised 20→35 min (2026-05-29): a full run legitimately
+// takes ~16–25 min under Sonnet 4.6 / xhigh, so a hard 20 min guillotined runs that
+// had already finished, which the orchestrator then re-queued and surfaced as a false
+// "duplicate (all artifacts already exist)" skip. Configurable via PER_URL_TIMEOUT_MS
+// so the operator can tune without a redeploy.
+// See docs/superpowers/plans/2026-05-29-yash-pipeline-timeout-requeue-fix.md.
+export function resolveRunTimeoutMs(env = process.env) {
+  const raw = parseInt(env.PER_URL_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 35 * 60 * 1000;
+}
+
+/**
+ * Find the audit-log line that belongs to THIS run: the latest JSONL line whose
+ * `url` matches and whose `timestamp` is within the run window (>= startedAt).
+ * The window guard prevents a stale line from a prior attempt from falsely
+ * crediting a later attempt. Returns the raw parsed object or null.
+ */
+export function findAuditResult({ auditText, url, startedAt = null }) {
+  if (!auditText) return null;
+  const minTs = startedAt ? Date.parse(startedAt) : null;
+  const lines = auditText.trim().split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let obj;
+    try { obj = JSON.parse(lines[i]); } catch { continue; }
+    if (obj.url !== url) continue;
+    if (minTs !== null && obj.timestamp) {
+      const ts = Date.parse(obj.timestamp);
+      if (!Number.isNaN(ts) && ts < minTs - AUDIT_WINDOW_SKEW_MS) continue;
+    }
+    return obj;
+  }
+  return null;
+}
 
 // ── verifyRunArtifacts ──────────────────────────────────────────────────────
 
@@ -317,7 +353,7 @@ export async function tickOnce({
   try {
     result = await spawn({
       runId, queueId: next.id, url: next.url, urlHash: next.url_hash,
-      projectRoot, claudeModel,
+      projectRoot, claudeModel, startedAt,
     });
   } catch (e) {
     runLog.error({ event: 'spawn_threw', err: e }, 'spawn() threw');
@@ -382,53 +418,19 @@ export async function tickOnce({
     return { action: 'rate_limited', runId };
   }
 
-  if (result.exitCode === 0) {
-    // Artifact-gated completion: a 0 exit alone is NOT enough to declare success.
-    // Either the runner explicitly skipped (mark-skipped → result.isSkip = true,
-    // emit formatSkipped + close the row), or all three declared artifacts must
-    // exist on disk. Anything else is a false success and gets rerouted into the
-    // failure branch so the 3-strike retry re-attempts the missing work.
-    const verify = verifyRunArtifacts({ result, projectRoot });
+  // ── Ground-truth success determination (2026-05-29 fix) ─────────────────────
+  // A run is successful when it legitimately skipped OR produced all three declared
+  // artifacts on disk — REGARDLESS of the claude -p exit code. Before this, success
+  // was gated on exitCode===0, so a run that finished the pipeline but was SIGTERM'd
+  // at the wall-clock timeout (exit 143) just before the process exited was
+  // misclassified as a failure and re-queued — which then surfaced as a false
+  // "duplicate (all artifacts already exist)" skip (OpenLoop) or an
+  // incomplete_artifacts failure (StackAdapt) on the retry. realSpawn scopes
+  // result.* to THIS run's audit window, so stale prior-attempt lines can't leak in.
+  // See docs/superpowers/plans/2026-05-29-yash-pipeline-timeout-requeue-fix.md.
+  const verify = verifyRunArtifacts({ result, projectRoot });
 
-    if (verify.kind === 'skip') {
-      updateRunEnd(db, runId, {
-        endedAt, status: 'ok', score: result.score, slug: result.slug,
-        jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
-        tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
-        phaseTimingsJson: result.phaseTimingsJson,
-      });
-      markQueueDone(db, next.id);
-      deleteCheckpoint(db, runId);
-      runLog.info({
-        event: 'run_completed_skip',
-        skip_reason: result.skipReason || null,
-      }, 'run completed via mark-skipped (no new artifacts)');
-      notify(formatSkipped({
-        runId, hostname: hostnameOf(next.url), reason: result.skipReason,
-      }));
-      return { action: 'completed_skip', runId };
-    }
-
-    if (!verify.ok) {
-      // Reroute into the failure branch (defined just below) so the 3-strike
-      // retry re-attempts the missing work. Replace the result fields the
-      // failure handler reads so the failure_phase + error are accurate.
-      runLog.error({
-        event: 'incomplete_artifacts',
-        missing: verify.missing,
-        declared_jd: result.jdPath,
-        declared_pdf: result.resumePdf,
-        declared_cl: result.coverLetterPdf,
-      }, 'runner reported exit 0 but expected artifacts are missing');
-      result = {
-        ...result,
-        exitCode: 1,
-        error: `incomplete_artifacts: ${verify.missing.join(', ')}`,
-        failedPhase: 'verify_artifacts',
-      };
-      // fall through to the existing failure/retry branch below
-    } else {
-
+  if (verify.kind === 'skip') {
     updateRunEnd(db, runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -438,7 +440,26 @@ export async function tickOnce({
     markQueueDone(db, next.id);
     deleteCheckpoint(db, runId);
     runLog.info({
-      event: 'run_completed_ok',
+      event: 'run_completed_skip', exit_code: result.exitCode,
+      skip_reason: result.skipReason || null,
+    }, 'run completed via mark-skipped (no new artifacts)');
+    notify(formatSkipped({
+      runId, hostname: hostnameOf(next.url), reason: result.skipReason,
+    }));
+    return { action: 'completed_skip', runId };
+  }
+
+  if (verify.ok) {
+    updateRunEnd(db, runId, {
+      endedAt, status: 'ok', score: result.score, slug: result.slug,
+      jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
+      tokensIn: result.tokensIn, tokensOut: result.tokensOut, costUsd: result.costUsd,
+      phaseTimingsJson: result.phaseTimingsJson,
+    });
+    markQueueDone(db, next.id);
+    deleteCheckpoint(db, runId);
+    runLog.info({
+      event: 'run_completed_ok', exit_code: result.exitCode,
       score: result.score ?? null,
       duration_ms: result.durationMs ?? null,
       company: result.company || null,
@@ -470,10 +491,10 @@ export async function tickOnce({
       }
     }
     return { action: 'completed_ok', runId };
-    }   // end of `else` (verify.ok) — falls through to failure branch otherwise
   }
 
-  // failure or cancelled
+  // ── No completion evidence on disk ──────────────────────────────────────────
+  // Cancellation wins over retry.
   const cancelled = isCancelRequested(db, next.id);
   if (cancelled) {
     updateRunEnd(db, runId, { endedAt, status: 'cancelled', error: 'user-cancelled' });
@@ -482,6 +503,24 @@ export async function tickOnce({
     runLog.info({ event: 'run_cancelled' }, 'run cancelled by user');
     notify(formatCancelled({ runId }));
     return { action: 'completed_cancelled', runId };
+  }
+
+  // A clean exit (0) that produced nothing is a false success — record the precise
+  // missing artifacts so the 3-strike retry reattempts the right work.
+  if (result.exitCode === 0) {
+    runLog.error({
+      event: 'incomplete_artifacts',
+      missing: verify.missing,
+      declared_jd: result.jdPath,
+      declared_pdf: result.resumePdf,
+      declared_cl: result.coverLetterPdf,
+    }, 'runner reported exit 0 but expected artifacts are missing');
+    result = {
+      ...result,
+      exitCode: 1,
+      error: `incomplete_artifacts: ${verify.missing.join(', ')}`,
+      failedPhase: 'verify_artifacts',
+    };
   }
 
   // Shared 3-strike retry policy (plan §4.8 / Q6 — applies to Yash AND Shivani).
@@ -551,7 +590,7 @@ export async function tickOnce({
 // This is the production glue. The signature matches what tickOnce passes in.
 // `mode` is 'fresh' (default) or 'resume'; `resumeContext` carries the extra vars
 // (LAST_PHASE, NEXT_PHASE, INPUTS_SUMMARY) substituted into the resume preamble.
-export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel, mode = 'fresh', resumeContext = null }, { onPhaseEnd, onSpawn, db }) {
+export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbPath, claudeModel, startedAt = null, mode = 'fresh', resumeContext = null }, { onPhaseEnd, onSpawn, db }) {
   const preamble = renderPreamble({
     projectRoot, mode,
     vars: {
@@ -634,11 +673,12 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }, CHECKPOINT_POLL_MS);
 
-  // wall-clock timeout: 20 min
+  // wall-clock timeout (configurable; default 35 min)
+  const runTimeoutMs = resolveRunTimeoutMs();
   const timeout = setTimeout(() => {
     try { child.kill('SIGTERM'); } catch {}
     setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, SIGKILL_GRACE_MS);
-  }, PER_URL_TIMEOUT_MS);
+  }, runTimeoutMs);
 
   const exit = await new Promise((res) => {
     child.on('exit', (code, signal) => res({ code, signal }));
@@ -649,17 +689,12 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
   clearTimeout(timeout);
   logStream.end();
 
-  // grep audit log for the per-URL JSONL line
+  // Find the per-URL audit line for THIS run, scoped to the run window by startedAt
+  // so a stale prior-attempt line can't be credited to this attempt.
   const auditPath = resolveAuditLogPath(projectRoot);
   let parsed = null;
   if (existsSync(auditPath)) {
-    const lines = readFileSync(auditPath, 'utf-8').trim().split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const obj = JSON.parse(lines[i]);
-        if (obj.url === url) { parsed = obj; break; }
-      } catch {}
-    }
+    parsed = findAuditResult({ auditText: readFileSync(auditPath, 'utf-8'), url, startedAt });
   }
 
   // Scan the tail of claude.log for usage-limit signatures. Only run when
@@ -728,12 +763,13 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
   notify(formatStart({ runId: recovery.runId, hostname: hostnameOf(recovery.url) }));
   notify(`♻️ Resuming run #${recovery.runId} from \`${recovery.lastPhase}\` → \`${recovery.nextPhase}\``);
 
+  const startedAt = new Date().toISOString();
   let result;
   try {
     result = await spawn(
       {
         runId: recovery.runId, queueId: recovery.queueId, url: recovery.url, urlHash: recovery.urlHash,
-        projectRoot, dbPath, claudeModel,
+        projectRoot, dbPath, claudeModel, startedAt,
         mode: 'resume',
         resumeContext: {
           LAST_PHASE: recovery.lastPhase,
@@ -752,7 +788,12 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
 
   const endedAt = new Date().toISOString();
 
-  if (result.exitCode === 0) {
+  // Ground-truth success (2026-05-29): credit a clean exit OR a run that produced
+  // all artifacts / legitimately skipped even if SIGTERM'd at the timeout (exit 143)
+  // before exiting. Same bug class as the tickOnce fix; additive so a clean exit
+  // still counts as success (preserves the no-artifact resume test).
+  const verify = verifyRunArtifacts({ result, projectRoot });
+  if (result.exitCode === 0 || verify.kind === 'skip' || verify.ok) {
     updateRunEnd(db, recovery.runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
