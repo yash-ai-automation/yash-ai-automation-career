@@ -21,6 +21,7 @@ import { initDb, closeDb } from '../../services/db.mjs';
 import { insertQueueRow } from '../../services/queue.mjs';
 import {
   tickOnce, resolveRunTimeoutMs, findAuditResult, scanRunArtifacts, verifyRunArtifacts,
+  deriveSlugFromArtifacts, findArtifactsBySlug, resolveRunArtifacts, identifyOrphanClaudePids,
 } from '../../services/pipeline-orchestrator.mjs';
 
 function fresh() {
@@ -198,4 +199,89 @@ test('scanRunArtifacts: returns nulls when the tenant dirs are absent', () => {
     const scanned = scanRunArtifacts({ projectRoot: dir, tenant: 'yash', startedAt: new Date().toISOString() });
     assert.deepEqual(scanned, { jd: null, pdf: null, cover_letter_pdf: null });
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── deriveSlugFromArtifacts ─────────────────────────────────────────────────
+
+test('deriveSlugFromArtifacts: recovers slug from a JD / resume / cover-letter filename', () => {
+  assert.equal(
+    deriveSlugFromArtifacts({ scanned: { jd: '/x/jds/yash/JD_Stackadapt_FullStackEngineerIntegrations_Yash_Anghan_2026-05-29.md' }, tenant: 'yash' }),
+    'Stackadapt_FullStackEngineerIntegrations',
+  );
+  assert.equal(
+    deriveSlugFromArtifacts({ scanned: { cover_letter_pdf: '/x/cover-letters/yash/Cineplex_SoftwareDeveloper_Yash_Anghan_Cover_Letter_2026-05-29.pdf' }, tenant: 'yash' }),
+    'Cineplex_SoftwareDeveloper',
+  );
+  assert.equal(deriveSlugFromArtifacts({ scanned: { jd: null, pdf: null, cover_letter_pdf: null }, tenant: 'yash' }), null);
+});
+
+// ── findArtifactsBySlug + resolveRunArtifacts: the CL-only path ──────────────
+
+test('resolveRunArtifacts: CL-only path recovers a PRE-EXISTING jd+resume via slug scope (Cineplex regression)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cl-only-'));
+  try {
+    const slug = 'Cineplex_SoftwareDeveloper';
+    mkdirSync(join(dir, 'jds/yash'), { recursive: true });
+    mkdirSync(join(dir, 'resumes/yash'), { recursive: true });
+    mkdirSync(join(dir, 'cover-letters/yash'), { recursive: true });
+    // JD + resume are OLD (pre-existing from a prior run) → outside the run window.
+    const jd = join(dir, `jds/yash/JD_${slug}_Yash_Anghan_2026-05-29.md`);
+    const pdf = join(dir, `resumes/yash/${slug}_Yash_Anghan_Resume_2026-05-29.pdf`);
+    writeFileSync(jd, '# jd'); writeFileSync(pdf, '%PDF old');
+    const old = new Date(Date.now() - 3 * 3600 * 1000);
+    utimesSync(jd, old, old); utimesSync(pdf, old, old);
+    // Cover letter is FRESH (just produced this run).
+    const cl = join(dir, `cover-letters/yash/${slug}_Yash_Anghan_Cover_Letter_2026-05-29.pdf`);
+    writeFileSync(cl, '%PDF fresh cl');
+
+    const startedAt = new Date(Date.now() - 60_000).toISOString();
+    // Agent logged nothing (declared all null) — worst case.
+    const r = resolveRunArtifacts({ declared: { jd: null, pdf: null, cover_letter_pdf: null }, projectRoot: dir, tenant: 'yash', startedAt });
+    assert.equal(r.slug, slug, 'slug derived from the fresh cover letter');
+    assert.ok(r.jdPath && r.resumePdf && r.coverLetterPdf,
+      `all three resolved (slug scope recovers the old jd+resume): ${JSON.stringify(r)}`);
+    // And verifyRunArtifacts now passes for the CL-only run.
+    const v = verifyRunArtifacts({ result: { isSkip: false, jdPath: r.jdPath, resumePdf: r.resumePdf, coverLetterPdf: r.coverLetterPdf }, projectRoot: dir });
+    assert.equal(v.ok, true, 'CL-only run verifies complete via slug-scoped recovery');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('resolveRunArtifacts: declared paths win over scan/slug when present', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'declared-win-'));
+  try {
+    const r = resolveRunArtifacts({
+      declared: { jd: 'jds/yash/declared.md', pdf: 'resumes/yash/declared.pdf', cover_letter_pdf: 'cover-letters/yash/declared.pdf' },
+      projectRoot: dir, tenant: 'yash', startedAt: new Date().toISOString(),
+    });
+    assert.equal(r.jdPath, 'jds/yash/declared.md');
+    assert.equal(r.resumePdf, 'resumes/yash/declared.pdf');
+    assert.equal(r.coverLetterPdf, 'cover-letters/yash/declared.pdf');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── identifyOrphanClaudePids (boot-time reaper selector) ─────────────────────
+
+test('identifyOrphanClaudePids: selects stale ppid=1 claude -p workers, spares live + young + non-claude', () => {
+  const snap = [
+    { pid: 100, ppid: 1, etimes: 4000, cmd: 'claude -p You are running the yash-resume-pipeline /root/proj' }, // stale orphan ✓
+    { pid: 101, ppid: 999, etimes: 4000, cmd: 'claude -p ... /root/proj' },   // live child (ppid≠1) ✗
+    { pid: 102, ppid: 1, etimes: 60, cmd: 'claude -p ... /root/proj' },        // too young ✗
+    { pid: 103, ppid: 1, etimes: 9000, cmd: 'node services/pipeline-orchestrator.mjs' }, // not claude ✗
+    { pid: 104, ppid: 1, etimes: 5000, cmd: '/usr/bin/claude -p ... /root/proj' }, // stale orphan ✓
+  ];
+  const pids = identifyOrphanClaudePids(snap, { minAgeSec: 2400, projectRoot: '/root/proj' });
+  assert.deepEqual(pids.sort((a, b) => a - b), [100, 104]);
+});
+
+test('identifyOrphanClaudePids: projectRoot filter excludes other-project orphans', () => {
+  const snap = [
+    { pid: 200, ppid: 1, etimes: 5000, cmd: 'claude -p ... /root/projA' },
+    { pid: 201, ppid: 1, etimes: 5000, cmd: 'claude -p ... /root/projB' },
+  ];
+  assert.deepEqual(identifyOrphanClaudePids(snap, { projectRoot: '/root/projA' }), [200]);
+});
+
+test('identifyOrphanClaudePids: empty / nullish snapshot → empty list', () => {
+  assert.deepEqual(identifyOrphanClaudePids([], {}), []);
+  assert.deepEqual(identifyOrphanClaudePids(null, {}), []);
 });

@@ -7,7 +7,7 @@
 // into tickOnce() and runs the poll loop with a 2-second cadence.
 
 import { spawn as nodeSpawn } from 'node:child_process';
-import { resolve, join, isAbsolute } from 'node:path';
+import { resolve, join, isAbsolute, basename } from 'node:path';
 import { mkdirSync, createWriteStream, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 
@@ -200,6 +200,140 @@ export function scanRunArtifacts({ projectRoot, tenant = 'yash', startedAt = nul
     out[key] = best;
   }
   return out;
+}
+
+// ── deriveSlugFromArtifacts ─────────────────────────────────────────────────
+
+/**
+ * Recover the company/role slug from an artifact filename. The pipeline names
+ * files `JD_<slug>_<First>_Anghan_<date>.md`, `<slug>_<First>_Anghan_Resume_<date>.pdf`,
+ * `<slug>_<First>_Anghan_Cover_Letter_<date>.pdf` (First = capitalised tenant).
+ * Returns the slug, or null if none of the provided paths parse.
+ */
+export function deriveSlugFromArtifacts({ scanned, tenant = 'yash' }) {
+  const first = tenant.charAt(0).toUpperCase() + tenant.slice(1);
+  const marker = `_${first}_Anghan_`;
+  for (const [key, p] of Object.entries(scanned || {})) {
+    if (!p) continue;
+    let name = basename(p);
+    if (key === 'jd') name = name.replace(/^JD_/, '');
+    const idx = name.indexOf(marker);
+    if (idx > 0) return name.slice(0, idx);
+  }
+  return null;
+}
+
+// ── findArtifactsBySlug ─────────────────────────────────────────────────────
+
+/**
+ * Slug-scoped triplet lookup (the robust replacement for an mtime-only window
+ * scan on the CL-only / partial-duplicate path, where the JD + resume already
+ * exist from a prior run and only the cover letter is freshly produced). For the
+ * given slug, returns the newest matching JD / resume / cover-letter in the
+ * tenant's output dirs — REGARDLESS of mtime — mirroring the pipeline's own
+ * check-duplicate triplet semantics. Absolute paths, or null per slot.
+ */
+export function findArtifactsBySlug({ projectRoot, tenant = 'yash', slug }) {
+  const out = { jd: null, pdf: null, cover_letter_pdf: null };
+  if (!slug) return out;
+  const first = tenant.charAt(0).toUpperCase() + tenant.slice(1);
+  const specs = {
+    jd:              { dir: join(projectRoot, 'jds', tenant),           prefix: 'JD_', must: `${slug}_${first}_Anghan_`,              ext: '.md' },
+    pdf:             { dir: join(projectRoot, 'resumes', tenant),                      must: `${slug}_${first}_Anghan_Resume_`,        ext: '.pdf' },
+    cover_letter_pdf:{ dir: join(projectRoot, 'cover-letters', tenant),               must: `${slug}_${first}_Anghan_Cover_Letter_`,  ext: '.pdf' },
+  };
+  for (const [key, s] of Object.entries(specs)) {
+    if (!existsSync(s.dir)) continue;
+    let entries;
+    try { entries = readdirSync(s.dir); } catch { continue; }
+    let best = null, bestMtime = -1;
+    for (const name of entries) {
+      if (s.prefix && !name.startsWith(s.prefix)) continue;
+      if (!name.includes(s.must)) continue;
+      if (s.ext && !name.endsWith(s.ext)) continue;
+      const p = join(s.dir, name);
+      let st;
+      try { st = statSync(p); } catch { continue; }
+      if (!st.isFile() || st.size === 0) continue;
+      if (st.mtimeMs > bestMtime) { best = p; bestMtime = st.mtimeMs; }
+    }
+    out[key] = best;
+  }
+  return out;
+}
+
+// ── resolveRunArtifacts ─────────────────────────────────────────────────────
+
+/**
+ * Three-layer artifact path resolution for a finished run, most-trusted first:
+ *   1. declared — paths the agent logged in its audit line (when present)
+ *   2. window scan — newest file per dir written within the run window
+ *   3. slug scope — newest file per dir matching the run's slug, any date
+ * Layer 3 is what recovers a pre-existing JD + resume on the CL-only path.
+ */
+export function resolveRunArtifacts({ declared, projectRoot, tenant = 'yash', startedAt = null }) {
+  const scanned = scanRunArtifacts({ projectRoot, tenant, startedAt });
+  const slug = deriveSlugFromArtifacts({ scanned, tenant });
+  const bySlug = findArtifactsBySlug({ projectRoot, tenant, slug });
+  const pick = (d, key) => d ?? scanned[key] ?? bySlug[key];
+  return {
+    slug,
+    jdPath: pick(declared?.jd, 'jd'),
+    resumePdf: pick(declared?.pdf, 'pdf'),
+    coverLetterPdf: pick(declared?.cover_letter_pdf, 'cover_letter_pdf'),
+  };
+}
+
+// ── identifyOrphanClaudePids ────────────────────────────────────────────────
+
+/**
+ * Pure selector for the boot-time reaper. From a process snapshot
+ * (`[{ pid, ppid, etimes, cmd }]`), return the pids of `claude -p` workers that
+ * have been re-parented to init (ppid === 1) AND are older than minAgeSec — i.e.
+ * leaked children of a prior orchestrator that died mid-run (a restart kills the
+ * parent but the SIGTERM/SIGKILL timer dies with it, so the child runs forever).
+ * The age floor (default 40 min > the 35-min run timeout) guarantees we never
+ * touch a sibling tenant's freshly-orphaned-but-legitimate child during a
+ * coordinated restart. The current live child is never matched (its ppid is the
+ * live orchestrator, not 1).
+ */
+export function identifyOrphanClaudePids(snapshot, { minAgeSec = 2400, projectRoot = null } = {}) {
+  return (snapshot || [])
+    .filter((p) => p && p.ppid === 1)
+    .filter((p) => typeof p.cmd === 'string' && /(^|\/)claude\b/.test(p.cmd) && /\s-p(\s|$)/.test(p.cmd))
+    .filter((p) => (p.etimes ?? 0) >= minAgeSec)
+    .filter((p) => !projectRoot || p.cmd.includes(projectRoot))
+    .map((p) => p.pid);
+}
+
+/**
+ * Runtime side of the reaper: snapshot processes via `ps`, select stale orphans
+ * with identifyOrphanClaudePids, SIGKILL them. Best-effort; never throws. Called
+ * once at orchestrator boot before the poll loop. Returns the pids it killed.
+ */
+export function reapOrphanedClaudeProcesses({ projectRoot, logger = defaultLogger } = {}) {
+  let snapshot = [];
+  try {
+    const raw = execSync('ps -eo pid=,ppid=,etimes=,args=', { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    snapshot = raw.split('\n').map((line) => {
+      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/);
+      if (!m) return null;
+      return { pid: Number(m[1]), ppid: Number(m[2]), etimes: Number(m[3]), cmd: m[4] };
+    }).filter(Boolean);
+  } catch (e) {
+    logger.warn({ event: 'reaper_ps_failed', err: e.message }, 'could not snapshot processes; skipping orphan reap');
+    return [];
+  }
+  const pids = identifyOrphanClaudePids(snapshot, { projectRoot });
+  const killed = [];
+  for (const pid of pids) {
+    try { process.kill(pid, 'SIGKILL'); killed.push(pid); }
+    catch (e) { logger.warn({ event: 'reaper_kill_failed', pid, err: e.message }, 'failed to kill orphan'); }
+  }
+  if (killed.length) {
+    logger.warn({ event: 'reaped_orphan_claude', pids: killed }, `reaped ${killed.length} orphaned claude -p worker(s)`);
+  }
+  return killed;
 }
 
 // ── createPhaseTracker ──────────────────────────────────────────────────────
@@ -466,7 +600,16 @@ export async function tickOnce({
   // incomplete_artifacts failure (StackAdapt) on the retry. realSpawn scopes
   // result.* to THIS run's audit window, so stale prior-attempt lines can't leak in.
   // See docs/superpowers/plans/2026-05-29-yash-pipeline-timeout-requeue-fix.md.
+  //
+  // 2026-05-29 refinement: the pipeline writes status:ok to its audit log ONLY at
+  // its terminal step, after every artifact has compiled — so result.auditStatus
+  // ('ok') is the single most trustworthy completion signal, even on the CL-only
+  // path where a fresh cover letter sits beside a pre-existing JD + resume. We
+  // trust it (guarded by a resume-on-disk check against a hallucinated 'ok'), and
+  // also accept the run when all three resolved artifacts exist on disk.
   const verify = verifyRunArtifacts({ result, projectRoot });
+  const auditOk = result.auditStatus === 'ok';
+  const resumeOnDisk = !!(result.resumePdf && existsSync(result.resumePdf));
 
   if (verify.kind === 'skip') {
     updateRunEnd(db, runId, {
@@ -487,7 +630,7 @@ export async function tickOnce({
     return { action: 'completed_skip', runId };
   }
 
-  if (verify.ok) {
+  if (verify.ok || (auditOk && resumeOnDisk)) {
     updateRunEnd(db, runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -498,6 +641,7 @@ export async function tickOnce({
     deleteCheckpoint(db, runId);
     runLog.info({
       event: 'run_completed_ok', exit_code: result.exitCode,
+      audit_ok: auditOk, verified_on_disk: verify.ok,
       score: result.score ?? null,
       duration_ms: result.durationMs ?? null,
       company: result.company || null,
@@ -543,16 +687,19 @@ export async function tickOnce({
     return { action: 'completed_cancelled', runId };
   }
 
-  // A clean exit (0) that produced nothing is a false success — record the precise
-  // missing artifacts so the 3-strike retry reattempts the right work.
-  if (result.exitCode === 0) {
+  // A clean exit (0) — or an audit 'ok' we could not corroborate with a resume on
+  // disk (hallucinated completion) — that produced nothing is a false success.
+  // Record the precise missing artifacts so the 3-strike retry reattempts the work.
+  if (result.exitCode === 0 || auditOk) {
     runLog.error({
       event: 'incomplete_artifacts',
       missing: verify.missing,
+      audit_ok: auditOk,
+      resume_on_disk: resumeOnDisk,
       declared_jd: result.jdPath,
       declared_pdf: result.resumePdf,
       declared_cl: result.coverLetterPdf,
-    }, 'runner reported exit 0 but expected artifacts are missing');
+    }, 'runner reported success but expected artifacts are missing');
     result = {
       ...result,
       exitCode: 1,
@@ -752,25 +899,29 @@ export async function realSpawn({ runId, queueId, url, urlHash, projectRoot, dbP
     }
   }
 
-  // Ground-truth fallback: if the agent's audit line omitted artifact paths (it
-  // logs status:ok + timings via --from-timer but sometimes not --jd/--pdf/--cover-letter),
-  // recover them by scanning the tenant's output dirs for files written during this
-  // run's window. Makes success determination independent of agent logging fidelity.
+  // Resolve artifact paths via three layers (declared → window scan → slug scope)
+  // so success determination is independent of whether the agent logged paths, and
+  // the CL-only path can recover a pre-existing JD + resume. auditStatus carries the
+  // pipeline's own terminal verdict ('ok'|'skip') — the most trustworthy completion
+  // signal, since the pipeline writes it only after all artifacts compile.
   const tenant = (process.env.TENANT || 'yash').trim().toLowerCase() || 'yash';
-  const scanned = scanRunArtifacts({ projectRoot, tenant, startedAt });
+  const declared = { jd: parsed?.jd ?? null, pdf: parsed?.pdf ?? null, cover_letter_pdf: parsed?.cover_letter_pdf ?? null };
+  const resolved = resolveRunArtifacts({ declared, projectRoot, tenant, startedAt });
 
   return {
     exitCode: exit.code === null ? 124 : exit.code,
     durationMs: parsed?.total_ms ?? null,
-    slug: parsed?.slug ?? null,
+    slug: parsed?.slug ?? resolved.slug ?? null,
     score: parsed?.score ?? null,
-    jdPath: parsed?.jd ?? scanned.jd,
-    resumePdf: parsed?.pdf ?? scanned.pdf,
-    coverLetterPdf: parsed?.cover_letter_pdf ?? scanned.cover_letter_pdf,
+    jdPath: resolved.jdPath,
+    resumePdf: resolved.resumePdf,
+    coverLetterPdf: resolved.coverLetterPdf,
     failedPhase: lastSeenPhase ? computeNextPhase(lastSeenPhase) : 'jd_fetch_end',
     error: exit.code === 0 ? null : `claude -p exit ${exit.code} signal ${exit.signal || 'none'}`,
     phaseTimingsJson: parsed ? JSON.stringify(parsed) : null,
-    // verifyRunArtifacts + skip-vs-success branching in tickOnce keys on these.
+    // tickOnce success determination keys on these. auditStatus is the pipeline's
+    // own terminal verdict; isSkip/skipReason are kept for back-compat.
+    auditStatus: parsed?.status ?? null,
     isSkip: parsed?.status === 'skip',
     skipReason: parsed?.reason ?? null,
     // Rate-limit signal — tickOnce reads these to branch into the quota-pause path.
@@ -838,7 +989,9 @@ export async function resumeInFlightRun({ db, projectRoot, dbPath, claudeModel, 
   // before exiting. Same bug class as the tickOnce fix; additive so a clean exit
   // still counts as success (preserves the no-artifact resume test).
   const verify = verifyRunArtifacts({ result, projectRoot });
-  if (result.exitCode === 0 || verify.kind === 'skip' || verify.ok) {
+  const auditOk = result.auditStatus === 'ok';
+  const resumeOnDisk = !!(result.resumePdf && existsSync(result.resumePdf));
+  if (result.exitCode === 0 || verify.kind === 'skip' || verify.ok || (auditOk && resumeOnDisk)) {
     updateRunEnd(db, recovery.runId, {
       endedAt, status: 'ok', score: result.score, slug: result.slug,
       jdPath: result.jdPath, resumePdf: result.resumePdf, coverLetterPdf: result.coverLetterPdf,
@@ -958,6 +1111,20 @@ async function main() {
   // READY=1 lets systemd consider the service "started"; WATCHDOG=1 pings keep
   // it alive under WatchdogSec=300 (ping cadence = 120s ≈ 1/2.5 of the limit).
   await notifyReady('orchestrator');
+
+  // Boot-time orphan reaper: a prior orchestrator that died mid-run (e.g. systemd
+  // SIGKILL after TimeoutStopSec) leaves its `claude -p` child re-parented to init
+  // (ppid=1), running forever because the kill timer died with the parent. On
+  // 2026-05-29 this left 11 parentless run-49 workers alive ~39h, starving the VPS
+  // and worsening run timeouts. Reap stale orphans (ppid=1, age > 40min, our
+  // projectRoot) before starting work. Live sibling-tenant children are never
+  // matched (their ppid is the live orchestrator, not 1).
+  try {
+    reapOrphanedClaudeProcesses({ projectRoot, logger: defaultLogger });
+  } catch (e) {
+    defaultLogger.warn({ event: 'reaper_threw', err: e.message }, 'orphan reaper threw; continuing boot');
+  }
+
   const stopWatchdog = startWatchdogPinger(120_000);
 
   // ── boot notification (one-shot) ────────────────────────────────────────
